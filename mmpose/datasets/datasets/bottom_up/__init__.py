@@ -4,8 +4,9 @@ from .bottom_up_coco import BottomUpCocoDataset
 from .bottom_up_coco_wholebody import BottomUpCocoWholeBodyDataset
 from .bottom_up_crowdpose import BottomUpCrowdPoseDataset
 from .bottom_up_mhp import BottomUpMhpDataset
+from .bottom_up_st_gesture import BottomUpSTGestureDataset
 
 __all__ = [
     'BottomUpCocoDataset', 'BottomUpCrowdPoseDataset', 'BottomUpMhpDataset',
-    'BottomUpAicDataset', 'BottomUpCocoWholeBodyDataset'
+    'BottomUpAicDataset', 'BottomUpCocoWholeBodyDataset', 'BottomUpSTGestureDataset'
 ]
