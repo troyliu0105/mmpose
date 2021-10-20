@@ -4,6 +4,7 @@ import copy
 import torch.nn as nn
 from mmcv.cnn import constant_init, ConvModule, normal_init
 from torch.nn.modules.batchnorm import _BatchNorm
+from torch.nn.modules.module import T
 
 from mmpose.utils import get_root_logger
 from .base_backbone import BaseBackbone
@@ -18,10 +19,8 @@ class HourglassModuleLite(nn.Module):
 
     Args:
         depth (int): Depth of current HourglassModule.
-        stage_channels (list[int]): Feature channels of sub-modules in current
-            and follow-up HourglassModule.
-        stage_blocks (list[int]): Number of sub-modules stacked in current and
-            follow-up HourglassModule.
+        stage_channel (int): first input channel.
+        increase (int): channel increase factor in sub-modules.
         norm_cfg (dict): Dictionary to construct and config norm layer.
     """
 
@@ -70,12 +69,14 @@ class HourglassNetLite(BaseBackbone):
                  num_stacks=4,
                  stack_pre_channels=(32, 32, 64, 128),
                  channel_increase=128,
+                 frozen_stages=-1,
                  norm_cfg=dict(type='BN', requires_grad=True)):
         # Protect mutable default arguments
         norm_cfg = copy.deepcopy(norm_cfg)
         super().__init__()
 
         self.num_stacks = num_stacks
+        self.frozen_stages = frozen_stages
         assert self.num_stacks >= 1
         assert len(stack_pre_channels) == num_stacks
 
@@ -154,3 +155,21 @@ class HourglassNetLite(BaseBackbone):
             out_feats.append(inter_feat)
 
         return out_feats
+
+    def train(self: T, mode: bool = True) -> T:
+        super().train(mode)
+        self._freeze_stages()
+        return self
+
+    def _freeze_stages(self):
+        """Freeze parameters."""
+        if self.frozen_stages >= 0:
+            self.stem.eval()
+            for param in self.stem.parameters():
+                param.requires_grad = False
+
+        for i in range(1, self.frozen_stages + 1):
+            m = self.hourglass_modules[i - 1]
+            m.eval()
+            for param in m.parameters():
+                param.requires_grad = False
