@@ -35,7 +35,8 @@ class AESimpleHead(DeconvHead):
                  tag_per_joint=True,
                  with_ae_loss=None,
                  extra=None,
-                 loss_keypoint=None):
+                 loss_keypoint=None,
+                 *args, **kwargs):
 
         dim_tag = num_joints if tag_per_joint else 1
         if with_ae_loss[0]:
@@ -50,7 +51,8 @@ class AESimpleHead(DeconvHead):
             num_deconv_filters=num_deconv_filters,
             num_deconv_kernels=num_deconv_kernels,
             extra=extra,
-            loss_keypoint=loss_keypoint)
+            loss_keypoint=loss_keypoint,
+            *args, **kwargs)
 
     def get_loss(self, outputs, targets, masks, joints):
         """Calculate bottom-up keypoint loss.
