@@ -1,5 +1,6 @@
 dataset_info = dict(
     dataset_name='st_rail_gesture',
+    paper_info="",
     keypoint_info={
         0:
             dict(name='left_wrist',

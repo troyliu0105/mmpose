@@ -61,11 +61,11 @@ model = dict(
 
 data_cfg = dict(
     # 横着
-    image_size=[256, 144],
-    heatmap_size=[64, 36],
+    # image_size=[256, 144],
+    # heatmap_size=[64, 36],
     # 竖着
-    # image_size=[144, 256],
-    # heatmap_size=[36, 64],
+    image_size=[144, 256],
+    heatmap_size=[36, 64],
     num_output_channels=channel_cfg['num_output_channels'],
     num_joints=channel_cfg['dataset_joints'],
     dataset_channel=channel_cfg['dataset_channel'],
@@ -108,28 +108,28 @@ test_pipeline = val_pipeline
 
 data_root = 'data'
 data = dict(
-    samples_per_gpu=16,
+    samples_per_gpu=256,
     workers_per_gpu=1,
-    val_dataloader=dict(samples_per_gpu=32),
+    val_dataloader=dict(samples_per_gpu=64),
     test_dataloader=dict(samples_per_gpu=32),
     train=dict(
         type='TopDownSTGestureDataset',
-        ann_file=f'{data_root}/zhuzhou/keypoints/zhuzhou.train.json',
-        img_prefix=f'{data_root}/zhuzhou/keypoints/JpgImages/',
+        ann_file=f'{data_root}/coco/stgesture_person_keypoints_train2017.json',
+        img_prefix=f'{data_root}/coco/train2017/',
         data_cfg=data_cfg,
         pipeline=train_pipeline,
         dataset_info={{_base_.dataset_info}}),
     val=dict(
         type='TopDownSTGestureDataset',
-        ann_file=f'{data_root}/zhuzhou/keypoints/zhuzhou.val.json',
-        img_prefix=f'{data_root}/zhuzhou/keypoints/JpgImages/',
+        ann_file=f'{data_root}/coco/stgesture_person_keypoints_val2017.json',
+        img_prefix=f'{data_root}/coco/val2017/',
         data_cfg=data_cfg,
         pipeline=val_pipeline,
         dataset_info={{_base_.dataset_info}}),
     test=dict(
         type='TopDownSTGestureDataset',
-        ann_file=f'{data_root}/zhuzhou/keypoints/zhuzhou.val.json',
-        img_prefix=f'{data_root}/zhuzhou/keypoints/JpgImages/',
+        ann_file=f'{data_root}/coco/stgesture_person_keypoints_val2017.json',
+        img_prefix=f'{data_root}/coco/val2017/',
         data_cfg=data_cfg,
         pipeline=test_pipeline,
         dataset_info={{_base_.dataset_info}}),
