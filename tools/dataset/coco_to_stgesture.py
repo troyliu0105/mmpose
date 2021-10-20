@@ -66,6 +66,8 @@ if __name__ == '__main__':
                 "area": shape['area'],
                 "id": shape['id']
             }
+            if 'segmentation' in shape:
+                kp_anno['segmentation'] = shape['segmentation']
             root_annotations.append(kp_anno)
         if len(shapes) > 0:
             root_images += coco.loadImgs(img_id)
