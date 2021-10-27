@@ -48,5 +48,11 @@ class LoadImageAsThreeChannelGrayFromFile(LoadImageFromFile):
 
     def __call__(self, results):
         results = super().__call__(results)
-        results['img'] = np.repeat(results['img'], 3, axis=-1)
+        img = results['img']
+        if img.ndim == 2:
+            img = np.expand_dims(img, -1)
+        else:
+            assert img.ndim == 3 and img.shape[-1] == 1
+        img = np.repeat(img, 3, axis=-1)
+        results['img'] = img
         return results
