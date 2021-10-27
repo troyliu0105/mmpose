@@ -1,5 +1,6 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import mmcv
+import numpy as np
 
 from ..builder import PIPELINES
 
@@ -31,4 +32,21 @@ class LoadImageFromFile:
             raise ValueError(f'Fail to read {image_file}')
 
         results['img'] = img
+        return results
+
+
+@PIPELINES.register_module()
+class LoadImageAsThreeChannelGrayFromFile(LoadImageFromFile):
+    """Loading image from file. return as a 3 channels grayscale image
+
+    """
+
+    def __init__(self, to_float32=False):
+        super().__init__(to_float32=to_float32,
+                         color_type="grayscale",
+                         channel_order="bgr")
+
+    def __call__(self, results):
+        results = super().__call__(results)
+        results['img'] = np.repeat(results['img'], 3, axis=-1)
         return results
