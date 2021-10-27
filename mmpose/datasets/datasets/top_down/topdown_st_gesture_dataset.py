@@ -9,6 +9,37 @@ from ...builder import DATASETS
 
 @DATASETS.register_module()
 class TopDownSTGestureDataset(TopDownCocoDataset):
+    """ST rail gestures dataset for top-down pose estimation.
+
+        The dataset loads raw features and apply specified transforms
+        to return a dict containing the image tensors and other information.
+
+        STGesture keypoint indexes::
+
+            0: 'left_wrist',
+            1: 'left_elbow',
+            2: 'left_shoulder',
+            3: 'head',
+            4: 'neck',
+            5: 'right_shoulder',
+            6: 'right_elbow',
+            7: 'right_wrist',
+            8: 'butt',
+            9: 'right_knee',
+            10: 'right_ankle',
+            11: 'left_knee',
+            12: 'left_ankle'
+
+        Args:
+            ann_file (str): Path to the annotation file.
+            img_prefix (str): Path to a directory where images are held.
+                Default: None.
+            data_cfg (dict): config
+            pipeline (list[dict | callable]): A sequence of data transforms.
+            dataset_info (DatasetInfo): A class containing all dataset info.
+            test_mode (bool): Store True when building test or
+                validation dataset. Default: False.
+        """
     def __init__(self,
                  ann_file,
                  img_prefix,
