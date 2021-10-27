@@ -61,9 +61,10 @@ class RepVGGBlock(nn.Module):
         self.rbr_1x1 = conv_bn(in_channels=in_channels, out_channels=out_channels, kernel_size=1,
                                stride=stride, padding=padding_11, groups=groups)
 
-    def eval(self: T) -> T:
-        self.switch_to_deploy()
-        return super().eval()
+    def train(self: T, mode: bool = True) -> T:
+        if not mode:
+            self.switch_to_deploy()
+        return super().train(mode)
 
     def forward(self, inputs):
         if self.training:
