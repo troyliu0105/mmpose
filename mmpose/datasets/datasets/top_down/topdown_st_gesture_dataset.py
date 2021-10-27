@@ -1,6 +1,7 @@
 import os
 
 import numpy as np
+from xtcocotools.cocoeval import COCOeval
 
 from . import TopDownCocoDataset
 from ...builder import DATASETS
@@ -91,3 +92,21 @@ class TopDownSTGestureDataset(TopDownCocoDataset):
             bbox_id = bbox_id + 1
 
         return rec
+
+    def _do_python_keypoint_eval(self, res_file):
+        """Keypoint evaluation using COCOAPI."""
+        coco_det = self.coco.loadRes(res_file)
+        coco_eval = COCOeval(self.coco, coco_det, 'keypoints', self.sigmas, use_area=False)
+        coco_eval.params.useSegm = None
+        coco_eval.evaluate()
+        coco_eval.accumulate()
+        coco_eval.summarize()
+
+        stats_names = [
+            'AP', 'AP .5', 'AP .75', 'AP (M)', 'AP (L)', 'AR', 'AR .5',
+            'AR .75', 'AR (M)', 'AR (L)'
+        ]
+
+        info_str = list(zip(stats_names, coco_eval.stats))
+
+        return info_str

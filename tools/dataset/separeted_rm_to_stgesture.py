@@ -74,14 +74,23 @@ if __name__ == '__main__':
                         min_y = np.maximum(0, np.min(dest_kps[valid_idx, 1]) - 1)
                         max_x = np.minimum(anno["imageWidth"], np.max(dest_kps[valid_idx, 0]) - 1)
                         max_y = np.minimum(anno["imageHeight"], np.max(dest_kps[valid_idx, 1]) - 1)
-                        area = (max_x - min_x) * (max_y - min_y)
+                        # scale = 1.2
+                        # w = max_x - min_x
+                        # h = max_y - min_y
+                        # bbox = np.array([min_x - (scale - 1) * w / 2, min_y - (scale * 1) * h / 2,
+                        #                  w * scale, h * scale])
+                        # bbox[[0, 2]] = np.clip(bbox[[0, 2]], 0, anno["imageWidth"])
+                        # bbox[[1, 3]] = np.clip(bbox[[1, 3]], 0, anno["imageHeight"])
+                        # area = bbox[2] * bbox[3]
                         kp_anno = {
                             "keypoints": dest_kps.flatten().tolist(),
                             "num_keypoints": int(valid_idx.sum()),
                             "category_id": 1,
                             "image_id": img_id,
                             "iscrowd": 0,
-                            "area": int(area),
+                            # "area": int(area),
+                            # "bbox": bbox.astype(np.int32).tolist(),
+                            "bbox": [0, 0, anno["imageWidth"], anno["imageHeight"]],
                             "id": ann_id
                         }
                         root_annotations.append(kp_anno)
