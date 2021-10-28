@@ -140,7 +140,7 @@ class Kpt2dSviewRgbImgBottomUpDataset(Dataset, metaclass=ABCMeta):
         m = np.zeros((img_info['height'], img_info['width']), dtype=np.float32)
 
         for obj in anno:
-            if 'segmentation' in obj:
+            if 'segmentation' in obj and len(obj['segmentation']) > 0:
                 if obj['iscrowd']:
                     rle = xtcocotools.mask.frPyObjects(obj['segmentation'],
                                                        img_info['height'],
