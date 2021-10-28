@@ -35,9 +35,11 @@ def build_dataset(cfg, default_args=None):
     Returns:
         Dataset: The constructed dataset.
     """
-    from .dataset_wrappers import RepeatDataset
+    from .dataset_wrappers import RepeatDataset, ConcatDataset
 
-    if cfg['type'] == 'RepeatDataset':
+    if isinstance(cfg, (list, tuple)):
+        dataset = ConcatDataset([build_dataset(c, default_args) for c in cfg])
+    elif cfg['type'] == 'RepeatDataset':
         dataset = RepeatDataset(
             build_dataset(cfg['dataset'], default_args), cfg['times'])
     else:
