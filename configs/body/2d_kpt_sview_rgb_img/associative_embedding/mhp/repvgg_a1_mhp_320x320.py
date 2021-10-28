@@ -63,7 +63,7 @@ model = dict(
     train_cfg=dict(),
     test_cfg=dict(
         num_joints=channel_cfg['dataset_joints'],
-        max_num_people=15,
+        max_num_people=30,
         scale_factor=[1],
         with_heatmaps=[True],
         with_ae=[True],
@@ -114,7 +114,7 @@ train_pipeline = [
     dict(
         type='BottomUpGenerateTarget',
         sigma=2,
-        max_num_people=15,
+        max_num_people=30,
     ),
     dict(
         type='Collect',
