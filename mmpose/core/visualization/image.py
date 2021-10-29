@@ -132,6 +132,9 @@ def imshow_keypoints(img,
     img_h, img_w, _ = img.shape
 
     for kpts in pose_result:
+
+        kpts = np.array(kpts, copy=False)
+
         # draw each point on image
         if pose_kpt_color is not None:
             assert len(pose_kpt_color) == len(kpts)
@@ -234,7 +237,7 @@ def imshow_keypoints_3d(
             not nddraw keypoints.
         pose_link_color (np.array[Mx3]): Color of M links. If None, do not
             draw links.
-        vis_height (int): The image hight of the visualization. The width
+        vis_height (int): The image height of the visualization. The width
                 will be N*vis_height depending on the number of visualized
                 items.
         kpt_score_thr (float): Minimum score of keypoints to be shown.
