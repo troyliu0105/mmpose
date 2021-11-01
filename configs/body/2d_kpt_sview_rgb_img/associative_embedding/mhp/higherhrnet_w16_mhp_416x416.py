@@ -124,12 +124,12 @@ data_cfg = dict(
     inference_channel=channel_cfg['inference_channel'],
     base_sigma=2,
     base_size=208,
-    num_scales=1,
+    num_scales=2,
     scale_aware_sigma=False,
 )
 
 train_pipeline = [
-    dict(type='LoadImageAsThreeChannelGrayFromFile'),
+    dict(type='LoadImageFromFile'),
     dict(
         type='BottomUpRandomAffine',
         rot_factor=30,
@@ -150,7 +150,7 @@ train_pipeline = [
 ]
 
 val_pipeline = [
-    dict(type='LoadImageAsThreeChannelGrayFromFile'),
+    dict(type='LoadImageFromFile'),
     dict(type='BottomUpGetImgSize', test_scale_factor=[1]),
     dict(type='BottomUpResizeAlign', transforms=[
         dict(type='ToTensor'),

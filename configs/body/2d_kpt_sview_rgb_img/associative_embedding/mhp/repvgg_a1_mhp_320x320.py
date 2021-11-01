@@ -102,7 +102,7 @@ data_cfg = dict(
 )
 
 train_pipeline = [
-    dict(type='LoadImageAsThreeChannelGrayFromFile'),
+    dict(type='LoadImageFromFile'),
     dict(
         type='BottomUpRandomAffine',
         rot_factor=30,
@@ -123,7 +123,7 @@ train_pipeline = [
 ]
 
 val_pipeline = [
-    dict(type='LoadImageAsThreeChannelGrayFromFile'),
+    dict(type='LoadImageFromFile'),
     dict(type='BottomUpGetImgSize', test_scale_factor=[1]),
     dict(type='BottomUpResizeAlign', transforms=[
         dict(type='ToTensor'),
