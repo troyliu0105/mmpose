@@ -84,8 +84,8 @@ data_cfg = dict(
     # 横着
     # image_size=[216, 384],
     # heatmap_size=[54, 96],
-    image_size=320,
-    heatmap_size=[80],
+    image_size=416,
+    heatmap_size=[104],
     # 竖着
     # image_size=[384, 216],
     # heatmap_size=[96, 54],
@@ -94,7 +94,7 @@ data_cfg = dict(
     dataset_channel=channel_cfg['dataset_channel'],
     inference_channel=channel_cfg['inference_channel'],
     base_sigma=2,
-    base_size=160,
+    base_size=208,
     num_scales=1,
     scale_aware_sigma=False,
     oks_thr=0.9,
