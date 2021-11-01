@@ -114,7 +114,7 @@ data_cfg = dict(
     # image_size=[216, 384],
     # heatmap_size=[54, 96],
     image_size=416,
-    heatmap_size=[104],
+    heatmap_size=[104, 208],
     # 竖着
     # image_size=[384, 216],
     # heatmap_size=[96, 54],
@@ -126,8 +126,6 @@ data_cfg = dict(
     base_size=208,
     num_scales=1,
     scale_aware_sigma=False,
-    oks_thr=0.9,
-    vis_thr=0.2,
 )
 
 train_pipeline = [
