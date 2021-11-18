@@ -12,11 +12,12 @@ from .topdown_heatmap_multi_stage_head import (TopdownHeatmapMSMUHead,
                                                TopdownHeatmapMultiStageHead)
 from .topdown_heatmap_simple_head import TopdownHeatmapSimpleHead
 from .vipnas_heatmap_simple_head import ViPNASHeatmapSimpleHead
+from .dekr_head import DEKRHead
 
 __all__ = [
     'TopdownHeatmapSimpleHead', 'TopdownHeatmapMultiStageHead',
     'TopdownHeatmapMSMUHead', 'TopdownHeatmapBaseHead',
     'AEHigherResolutionHead', 'AESimpleHead', 'AEMultiStageHead',
     'DeepposeRegressionHead', 'TemporalRegressionHead', 'Interhand3DHead',
-    'HMRMeshHead', 'DeconvHead', 'ViPNASHeatmapSimpleHead'
+    'HMRMeshHead', 'DeconvHead', 'ViPNASHeatmapSimpleHead', "DEKRHead"
 ]

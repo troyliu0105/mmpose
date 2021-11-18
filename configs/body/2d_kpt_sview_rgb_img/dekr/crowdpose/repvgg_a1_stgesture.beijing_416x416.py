@@ -37,49 +37,41 @@ channel_cfg = dict(
 
 # model settings
 model = dict(
-    type='AssociativeEmbedding',
-    backbone=dict(type='RepVGG', arch="a1", out_indices=[3]),
+    type='DEKR',
+    backbone=dict(type='RepVGG', arch="a1", out_indices=[1, 2, 3]),
     keypoint_head=dict(
-        type='AESimpleHead',
-        in_channels=256,
+        type='DEKRHead',
+        in_channels=[64, 128, 256],
+        in_index=[0, 1, 2],
         num_joints=channel_cfg['num_output_channels'],
-        in_index=-1,
-        num_deconv_layers=2,
-        num_deconv_filters=(256, 256),
-        num_deconv_kernels=(4, 4),
-        tag_per_joint=True,
-        with_ae_loss=[True],
+        transition_head_channels=32,
+        offset_pre_kpt=15,
+        offset_pre_blocks=1,
+        offset_feature_type="AdaptBlock",
+        input_transform="resize_concat",
         loss_keypoint=dict(
-            type='MultiLossFactory',
+            type='DEKRMultiLossFactory',
             num_joints=channel_cfg['num_output_channels'],
-            supervise_empty=False,
             num_stages=1,
-            ae_loss_type='exp',
-            with_ae_loss=[True],
-            push_loss_factor=[0.01],
-            pull_loss_factor=[0.01],
-            with_heatmaps_loss=[True],
-            heatmaps_loss_factor=[1.0],
+            bg_weight=0.01,
+            heatmaps_loss_factor=1.0,
+            offset_loss_factor=0.05,
         )),
     train_cfg=dict(),
     test_cfg=dict(
         num_joints=channel_cfg['dataset_joints'],
         max_num_people=30,
-        scale_factor=[1, 0.5],
+        scale_factor=[1],
         with_heatmaps=[True],
-        with_ae=[True],
         project2image=False,
         align_corners=False,
+        detection_threshold=0.01,
         nms_kernel=5,
         nms_padding=2,
-        tag_per_joint=True,
-        detection_threshold=0.1,
-        tag_threshold=1,
-        use_detection_val=True,
         ignore_too_much=False,
         adjust=True,
         refine=True,
-        flip_test=True))
+        flip_test=False))
 
 data_cfg = dict(
     # 横着
@@ -113,9 +105,8 @@ train_pipeline = [
     dict(type='BottomUpRandomFlip', flip_prob=0.5),
     dict(type='ToTensor'),
     dict(
-        type='BottomUpGenerateTarget',
-        sigma=2,
-        max_num_people=30,
+        type='BottomUpGenerateDEKRTargets',
+        sigma=2
     ),
     dict(
         type='Collect',

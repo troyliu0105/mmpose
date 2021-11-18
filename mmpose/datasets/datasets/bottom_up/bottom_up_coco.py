@@ -194,7 +194,7 @@ class BottomUpCocoDataset(Kpt2dSviewRgbImgBottomUpDataset):
                 kpts[image_id].append({
                     'keypoints': kpt[:, 0:3],
                     'score': scores[idx][idx_person],
-                    'tags': kpt[:, 3],
+                    # 'tags': kpt[:, 3],
                     'image_id': image_id,
                     'area': area,
                 })

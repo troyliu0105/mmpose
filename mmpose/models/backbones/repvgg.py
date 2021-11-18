@@ -226,11 +226,15 @@ class RepVGG(BaseBackbone):
 
     def forward(self, x):
         outs = []
+        requested_stage = list(self.out_indices)
         for stage_id in range(5):
+            if len(requested_stage) == 0:
+                break
             stage = getattr(self, "stage{}".format(stage_id))
             x = stage(x)
-            if stage_id in self.out_indices:
+            if stage_id in requested_stage:
                 outs.append(x)
+                requested_stage.remove(stage_id)
         if self.num_classes > 0:
             x = self.classifier(x)
             outs.append(x)

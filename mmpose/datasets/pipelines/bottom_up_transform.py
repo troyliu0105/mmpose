@@ -154,7 +154,7 @@ class HeatmapGenerator:
             x = np.arange(0, size, 1, np.float32)
             y = x[:, None]
             x0, y0 = 3 * sigma + 1, 3 * sigma + 1
-            self.g = np.exp(-((x - x0)**2 + (y - y0)**2) / (2 * sigma**2))
+            self.g = np.exp(-((x - x0) ** 2 + (y - y0) ** 2) / (2 * sigma ** 2))
 
     def __call__(self, joints):
         """Generate heatmaps."""
@@ -167,14 +167,14 @@ class HeatmapGenerator:
                 if pt[2] > 0:
                     x, y = int(pt[0]), int(pt[1])
                     if x < 0 or y < 0 or \
-                       x >= self.output_size or y >= self.output_size:
+                            x >= self.output_size or y >= self.output_size:
                         continue
 
                     if self.use_udp:
                         x0 = 3 * sigma + 1 + pt[0] - x
                         y0 = 3 * sigma + 1 + pt[1] - y
-                        g = np.exp(-((self.x - x0)**2 + (self.y - y0)**2) /
-                                   (2 * sigma**2))
+                        g = np.exp(-((self.x - x0) ** 2 + (self.y - y0) ** 2) /
+                                   (2 * sigma ** 2))
                     else:
                         g = self.g
 
@@ -189,8 +189,8 @@ class HeatmapGenerator:
                     cc, dd = max(0, ul[0]), min(br[0], self.output_size)
                     aa, bb = max(0, ul[1]), min(br[1], self.output_size)
                     hms[idx, aa:bb,
-                        cc:dd] = np.maximum(hms[idx, aa:bb, cc:dd], g[a:b,
-                                                                      c:d])
+                    cc:dd] = np.maximum(hms[idx, aa:bb, cc:dd], g[a:b,
+                                                                c:d])
         return hms
 
 
@@ -237,7 +237,7 @@ class JointsEncoder:
                         and 0 <= x < self.output_size):
                     if self.tag_per_joint:
                         visible_kpts[i][tot] = \
-                            (idx * output_size**2 + y * output_size + x, 1)
+                            (idx * output_size ** 2 + y * output_size + x, 1)
                     else:
                         visible_kpts[i][tot] = (y * output_size + x, 1)
                     tot += 1
@@ -644,6 +644,157 @@ class BottomUpGeneratePAFTarget:
 
         results['target'] = target_list
 
+        return results
+
+
+@PIPELINES.register_module()
+class BottomUpGenerateDEKRTargets:
+    def __init__(self, sigma=2., center_sigma=4., bg_weight=0.01, radius=4):
+        """
+        Args:
+            sigma (float): 是普通关键点的 sigma，一般为 2
+            center_sigma (float): 是虚拟中心点的 sigma，一般为 4。但是 crowdpose 一直都使用的 sgm 数值
+            bg_weight (float): 背景的权重
+            radius ():
+        """
+        self.sigma = sigma
+        self.center_sigma = center_sigma
+        self.bg_weight = bg_weight
+        self.radius = radius
+
+    def generate_heatmap(self, joints, num_joints, output_res):
+        """
+        Args:
+            joints ():
+            num_joints ():
+            output_res ():
+
+        Returns:
+
+        """
+        def get_heat_val(sigma, x, y, x0, y0):
+            g = np.exp(- ((x - x0) ** 2 + (y - y0) ** 2) / (2 * sigma ** 2))
+            return g
+
+        # [K + 1, outp, outp]
+        hms = np.zeros((num_joints + 1, output_res, output_res), dtype=np.float32)
+        ignored_hms = 2 * np.ones((num_joints + 1, output_res, output_res), dtype=np.float32)
+
+        hms_list = [hms, ignored_hms]
+        for p in joints:
+            for idx, pt in enumerate(p):
+                if idx < 17:
+                    sigma = self.sigma
+                else:
+                    sigma = self.center_sigma
+                if pt[2] > 0:
+                    x, y = pt[0], pt[1]
+                    if x < 0 or y < 0 or x >= output_res or y >= output_res:
+                        continue
+
+                    # 这里选取了以关键点为中心的一小块区域来应用高斯函数。有其下两个目的：
+                    # 1. 需要让关键点以外的区域保持为 0，以便应用 bg_weight
+                    # 2. 加速⏩ heatmap 生成
+                    ul = int(np.floor(x - 3 * sigma - 1)), int(np.floor(y - 3 * sigma - 1))
+                    br = int(np.ceil(x + 3 * sigma + 2)), int(np.ceil(y + 3 * sigma + 2))
+
+                    cc, dd = max(0, ul[0]), min(br[0], output_res)
+                    aa, bb = max(0, ul[1]), min(br[1], output_res)
+
+                    joint_rg = np.zeros((bb - aa, dd - cc))
+                    for sy in range(aa, bb):
+                        for sx in range(cc, dd):
+                            joint_rg[sy - aa, sx - cc] = get_heat_val(sigma, sx, sy, x, y)
+                    # 对于热力图重叠的区域，选择离关键点最近的（也就是值最大）
+                    hms_list[0][idx, aa:bb, cc:dd] = np.maximum(hms_list[0][idx, aa:bb, cc:dd], joint_rg)
+                    # 关键点热力区域的权重设为 1
+                    hms_list[1][idx, aa:bb, cc:dd] = 1.
+
+        # 除了关键点热力区域以外的背景的权重都是 bg_weight，热力区域权重为 1.0
+        hms_list[1][hms_list[1] == 2] = self.bg_weight
+        # 返回的 ignored_hms 实际上是一个权重。还需要和 mask 相乘，来将 'iscrowd' 等区域的权重置零
+        return hms_list
+
+    def generate_offset(self, joints, area, num_joints, output_w, output_h):
+        # offset 计算损失的 target
+        offset_map = np.zeros((num_joints * 2, output_h, output_w), dtype=np.float32)
+        # offset 损失的 weight，目标面积越大，weight 越小
+        weight_map = np.zeros((num_joints * 2, output_h, output_w), dtype=np.float32)
+        area_map = np.zeros((output_h, output_w), dtype=np.float32)
+
+        for person_id, p in enumerate(joints):
+            ct_x = int(p[-1, 0])
+            ct_y = int(p[-1, 1])
+            ct_v = int(p[-1, 2])
+            if ct_v < 1 or ct_x < 0 or ct_y < 0 or ct_x >= output_w or ct_y >= output_h:
+                continue
+
+            for idx, pt in enumerate(p[:-1]):
+                if pt[2] > 0:
+                    x, y = pt[0], pt[1]
+                    if x < 0 or y < 0 or x >= output_w or y >= output_h:
+                        continue
+
+                    # 所有 keypoint 的回归区域都是以当前人体中心点为中心，2·radius 为边长的正方体
+                    start_x = max(int(ct_x - self.radius), 0)
+                    start_y = max(int(ct_y - self.radius), 0)
+                    end_x = min(int(ct_x + self.radius), output_w)
+                    end_y = min(int(ct_y + self.radius), output_h)
+
+                    for pos_x in range(start_x, end_x):
+                        for pos_y in range(start_y, end_y):
+                            # 最后在实际推理的时候，就需要减去 offset，来得到最终的坐标
+                            offset_x = pos_x - x
+                            offset_y = pos_y - y
+                            # 如果当前位置已经有目标，且其面积小于正在处理的目标就跳过。
+                            # 主要是为了处理如一个人拿着棒球，棒球的区域会被遮挡住的情况（前景和背景？）
+                            if offset_map[idx * 2, pos_y, pos_x] != 0 or offset_map[idx * 2 + 1, pos_y, pos_x] != 0:
+                                if area_map[pos_y, pos_x] < area[person_id]:
+                                    continue
+                            offset_map[idx * 2, pos_y, pos_x] = offset_x
+                            offset_map[idx * 2 + 1, pos_y, pos_x] = offset_y
+                            weight_map[idx * 2, pos_y, pos_x] = 1. / np.sqrt(area[person_id])
+                            weight_map[idx * 2 + 1, pos_y, pos_x] = 1. / np.sqrt(area[person_id])
+                            area_map[pos_y, pos_x] = area[person_id]
+
+        return offset_map, weight_map
+
+    def __call__(self, results):
+        img, mask_list, joints_list = results['img'], results['mask'], results['joints'],
+        # add center joint
+        joints_list_with_center = []
+        area_list = []
+        for joints in joints_list:
+            num_people, k, d = joints.shape
+            joints *= joints[:, :, 2:3] > 0
+            w = np.max(joints[:, :, 0], axis=1, keepdims=True) - np.min(joints[:, :, 0], axis=1, keepdims=True)
+            h = np.max(joints[:, :, 1], axis=1, keepdims=True) - np.min(joints[:, :, 1], axis=1, keepdims=True)
+            area = w * w + h * h
+            area_list.append(area)
+            joints_with_center = np.zeros((num_people, k + 1, d), dtype=joints.dtype)
+            joints_with_center[:, :k, :] = joints
+            joints_sum = np.sum(joints[:, :, :2], axis=1)
+            num_vis_joints = np.sum(joints[:, :, 2] > 0, axis=-1)
+            for i, num in enumerate(num_vis_joints):
+                if num <= 0:
+                    joints_with_center[i, -1, :2] = 0
+                    joints_with_center[i, -1, 2] = 0
+                else:
+                    joints_with_center[i, -1, :2] = joints_sum[i] / num
+                    joints_with_center[i, -1, 2] = 1
+            joints_list_with_center.append(joints_with_center)
+        heatmap, ignored = self.generate_heatmap(joints_list_with_center[0], results['ann_info']['num_joints'],
+                                                 results['ann_info']['heatmap_size'][0])
+        mask_list[0] = mask_list[0] * ignored
+        offset, offset_w = self.generate_offset(joints_list_with_center[0], area_list[0],
+                                                results['ann_info']['num_joints'],
+                                                results['ann_info']['heatmap_size'][0],
+                                                results['ann_info']['heatmap_size'][0])
+        # results['targets'], results['joints'], results['mask'], results['offset'], results[
+        #     'offset_w'] = [heatmap], joints_list_with_center, mask_list, [offset], [offset_w]
+        # DEKR 只有一个 scale
+        results['target'], results['joints'], results['mask'], results['offset'], results[
+            'offset_w'] = heatmap, joints_list_with_center[0], mask_list[0], offset, offset_w
         return results
 
 
