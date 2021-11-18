@@ -1,25 +1,25 @@
 _base_ = ['../../../../_base_/datasets/st_rail_gesture.py']
 log_level = 'INFO'
-load_from = None
+load_from = ''
 resume_from = None
 dist_params = dict(backend='nccl')
 workflow = [('train', 1)]
-checkpoint_config = dict(interval=10)
-evaluation = dict(interval=10, metric='mAP', save_best='AP')
+checkpoint_config = dict(interval=2)
+evaluation = dict(interval=2, metric='mAP', save_best='AP')
 
 optimizer = dict(
     type='Adam',
-    lr=5e-4,
+    lr=5e-6,
 )
 optimizer_config = dict(grad_clip=None)
 # learning policy
 lr_config = dict(
     policy='step',
-    warmup='linear',
-    warmup_iters=500,
-    warmup_ratio=0.001,
-    step=[66, 90])
-total_epochs = 100
+    # warmup='linear',
+    # warmup_iters=500,
+    # warmup_ratio=0.001,
+    step=[10])
+total_epochs = 20
 log_config = dict(
     interval=50,
     hooks=[
@@ -33,18 +33,17 @@ channel_cfg = dict(
     dataset_channel=[
         [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
     ],
-    inference_channel=[
-        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
-    ])
+    inference_channel=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
 
 # model settings
 model = dict(
     type='TopDown',
-    backbone=dict(type='HourglassNetLite',
-                  downsample_times=2,
-                  num_stacks=4,
-                  stack_pre_channels=(32, 32, 64, 128),
-                  channel_increase=128),
+    backbone=dict(
+        type='HourglassNetLite',
+        downsample_times=2,
+        num_stacks=4,
+        stack_pre_channels=(32, 32, 64, 128),
+        channel_increase=128),
     keypoint_head=dict(
         type='TopdownHeatmapSimpleHead',
         in_channels=128,
@@ -61,11 +60,11 @@ model = dict(
 
 data_cfg = dict(
     # 横着
-    # image_size=[256, 144],
-    # heatmap_size=[64, 36],
+    image_size=[256, 144],
+    heatmap_size=[64, 36],
     # 竖着
-    image_size=[144, 256],
-    heatmap_size=[36, 64],
+    # image_size=[144, 256],
+    # heatmap_size=[36, 64],
     num_output_channels=channel_cfg['num_output_channels'],
     num_joints=channel_cfg['dataset_joints'],
     dataset_channel=channel_cfg['dataset_channel'],
@@ -106,30 +105,30 @@ val_pipeline = [
 
 test_pipeline = val_pipeline
 
-data_root = 'data/coco'
+data_root = 'data/rails'
 data = dict(
     samples_per_gpu=256,
     workers_per_gpu=1,
-    val_dataloader=dict(samples_per_gpu=64),
+    val_dataloader=dict(samples_per_gpu=32),
     test_dataloader=dict(samples_per_gpu=32),
     train=dict(
         type='TopDownSTGestureDataset',
-        ann_file=f'{data_root}/annotations/stgesture_person_keypoints_train2017.json',
-        img_prefix=f'{data_root}/train2017/',
+        ann_file=f'{data_root}/rm_zhuzhou/zhuzhou.train.json',
+        img_prefix=f'{data_root}/rm_zhuzhou/JpgImages/',
         data_cfg=data_cfg,
         pipeline=train_pipeline,
         dataset_info={{_base_.dataset_info}}),
     val=dict(
         type='TopDownSTGestureDataset',
-        ann_file=f'{data_root}/annotations/stgesture_person_keypoints_val2017.json',
-        img_prefix=f'{data_root}/val2017/',
+        ann_file=f'{data_root}/rm_zhuzhou/zhuzhou.val.json',
+        img_prefix=f'{data_root}/rm_zhuzhou/JpgImages/',
         data_cfg=data_cfg,
         pipeline=val_pipeline,
         dataset_info={{_base_.dataset_info}}),
     test=dict(
         type='TopDownSTGestureDataset',
-        ann_file=f'{data_root}/annotations/stgesture_person_keypoints_val2017.json',
-        img_prefix=f'{data_root}/val2017/',
+        ann_file=f'{data_root}/rm_zhuzhou/zhuzhou.val.json',
+        img_prefix=f'{data_root}/rm_zhuzhou/JpgImages/',
         data_cfg=data_cfg,
         pipeline=test_pipeline,
         dataset_info={{_base_.dataset_info}}),

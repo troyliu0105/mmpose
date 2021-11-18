@@ -9,7 +9,7 @@ evaluation = dict(interval=10, metric='mAP', save_best='AP')
 
 optimizer = dict(
     type='Adam',
-    lr=5e-4,
+    lr=5e-6,
 )
 optimizer_config = dict(grad_clip=None)
 # learning policy
@@ -18,8 +18,8 @@ lr_config = dict(
     warmup='linear',
     warmup_iters=500,
     warmup_ratio=0.001,
-    step=[170, 200])
-total_epochs = 210
+    step=[33, 45])
+total_epochs = 50
 log_config = dict(
     interval=50,
     hooks=[
@@ -75,7 +75,7 @@ data_cfg = dict(
 )
 
 train_pipeline = [
-    dict(type='LoadImageFromFile'),
+    dict(type='LoadImageAsThreeChannelGrayFromFile'),
     dict(type='TopDownRandomFlip', flip_prob=0.5),
     dict(
         type='TopDownGetRandomScaleRotation', rot_factor=40, scale_factor=0.5),
@@ -92,7 +92,7 @@ train_pipeline = [
 ]
 
 val_pipeline = [
-    dict(type='LoadImageFromFile'),
+    dict(type='LoadImageAsThreeChannelGrayFromFile'),
     dict(type='TopDownAffine'),
     dict(type='ToTensor'),
     dict(
@@ -114,22 +114,16 @@ data = dict(
     test_dataloader=dict(samples_per_gpu=32),
     train=dict(
         type='TopDownSTGestureDataset',
-        ann_file=f'{data_root}/zhuzhou/keypoints/zhuzhou.train.json',
-        img_prefix=f'{data_root}/zhuzhou/keypoints/JpgImages/',
         data_cfg=data_cfg,
         pipeline=train_pipeline,
         dataset_info={{_base_.dataset_info}}),
     val=dict(
         type='TopDownSTGestureDataset',
-        ann_file=f'{data_root}/zhuzhou/keypoints/zhuzhou.val.json',
-        img_prefix=f'{data_root}/zhuzhou/keypoints/JpgImages/',
         data_cfg=data_cfg,
         pipeline=val_pipeline,
         dataset_info={{_base_.dataset_info}}),
     test=dict(
         type='TopDownSTGestureDataset',
-        ann_file=f'{data_root}/zhuzhou/keypoints/zhuzhou.val.json',
-        img_prefix=f'{data_root}/zhuzhou/keypoints/JpgImages/',
         data_cfg=data_cfg,
         pipeline=test_pipeline,
         dataset_info={{_base_.dataset_info}}),
