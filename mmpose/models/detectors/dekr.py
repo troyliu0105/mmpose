@@ -171,6 +171,7 @@ class DEKR(BasePose):
         scale_heatmaps_list = []
         scale_poses_list = []
         poses = []
+        heatmap_sum = 0
 
         for idx, s in enumerate(sorted(test_scale_factor, reverse=True)):
             image_resized = aug_data[idx].to(img.device)
@@ -203,7 +204,7 @@ class DEKR(BasePose):
                 heatmaps,
                 heatmaps_flipped,
                 index=-1,
-                project2image=self.test_cfg['project2image'],
+                project2image=False,
                 size_projected=base_size,
                 align_corners=self.test_cfg.get('align_corners', True),
                 aggregate_stage='average',
@@ -213,13 +214,17 @@ class DEKR(BasePose):
                 posemaps,
                 posemaps_flipped,
                 index=-1,
-                project2image=self.test_cfg['project2image'],
+                project2image=False,
                 size_projected=base_size,
                 align_corners=self.test_cfg.get('align_corners', True),
                 aggregate_stage='average',
                 aggregate_flip='average')
 
             reversed_scale = image_resized.size(2) / aggregated_heatmaps[0].size(2) / s
+
+            h, w = aggregated_heatmaps[0].shape[2:]
+            heatmap_sum += up_interpolate(aggregated_heatmaps[0],
+                                          size=(int(reversed_scale * h), int(reversed_scale * w)))
             center_heatmap = aggregated_heatmaps[0][0, -1:]
             pose_ind, ctr_score = get_maximum_from_heatmap(center_heatmap,
                                                            self.test_cfg.get("detection_threshold", 0.1))
@@ -235,11 +240,10 @@ class DEKR(BasePose):
             else:
                 scale_heatmaps_list.append(aggregated_heatmaps)
 
-        aggregated_heatmaps = aggregate_scale(
-            scale_heatmaps_list,
-            align_corners=self.test_cfg.get('align_corners', True),
-            aggregate_scale='average')
-        poses, scores = pose_nms(aggregated_heatmaps, poses, test_scale_factor, self.test_cfg.get('max_num_people', 30))
+        heatmap_avg = heatmap_sum / len(test_scale_factor)
+        poses, scores = pose_nms(heatmap_avg, poses,
+                                 test_scale_factor,
+                                 self.test_cfg.get('max_num_people', 30))
         preds = get_final_preds(poses, center, scale, base_size)
 
         image_paths = []
@@ -320,6 +324,17 @@ class DEKR(BasePose):
             imwrite(img, out_file)
 
         return img
+
+
+def up_interpolate(x, size, mode='bilinear'):
+    H = x.size()[2]
+    W = x.size()[3]
+    scale_h = int(size[0] / H)
+    scale_w = int(size[1] / W)
+    inter_x = torch.nn.functional.interpolate(x, size=[size[0] - scale_h + 1, size[1] - scale_w + 1],
+                                              align_corners=True, mode=mode)
+    padd = torch.nn.ReplicationPad2d((0, scale_w - 1, 0, scale_h - 1))
+    return padd(inter_x)
 
 
 def get_final_preds(grouped_joints, center, scale, heatmap_size):
