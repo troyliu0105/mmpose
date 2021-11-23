@@ -154,30 +154,46 @@ val_pipeline = [
 
 test_pipeline = val_pipeline
 
-data_root = 'data/rails/rm_beijing'
+data_root = 'data/rails'
 data = dict(
     workers_per_gpu=2,
     train_dataloader=dict(samples_per_gpu=32),
     val_dataloader=dict(samples_per_gpu=1),
     test_dataloader=dict(samples_per_gpu=1),
-    train=dict(
-        type='BottomUpSTGestureDataset',
-        ann_file=f'{data_root}/rm_beijing.20211028.train.json',
-        img_prefix=f'{data_root}/images/',
-        data_cfg=data_cfg,
-        pipeline=train_pipeline,
-        dataset_info={{_base_.dataset_info}}),
+    train=[
+        dict(
+            type='BottomUpSTGestureDataset',
+            ann_file=f'{data_root}/rm_beijing/rm_beijing.20211123.train.json',
+            img_prefix=f'{data_root}/rm_beijing/images/',
+            data_cfg=data_cfg,
+            pipeline=train_pipeline,
+            dataset_info={{_base_.dataset_info}}),
+        dict(
+            type='BottomUpSTGestureDataset',
+            ann_file=f'{data_root}/rm_dalian/rm_dalian.20211123.train.json',
+            img_prefix=f'{data_root}/rm_dalian/images/',
+            data_cfg=data_cfg,
+            pipeline=train_pipeline,
+            dataset_info={{_base_.dataset_info}}),
+        dict(
+            type='BottomUpSTGestureDataset',
+            ann_file=f'{data_root}/rm_zhuzhou/rm_zhuzhou.20211123.train.json',
+            img_prefix=f'{data_root}/rm_zhuzhou/JpgImages/',
+            data_cfg=data_cfg,
+            pipeline=train_pipeline,
+            dataset_info={{_base_.dataset_info}})
+    ],
     val=dict(
         type='BottomUpSTGestureDataset',
-        ann_file=f'{data_root}/rm_beijing.20211028.val.json',
-        img_prefix=f'{data_root}/images/',
+        ann_file=f'{data_root}/rm_beijing/rm_beijing.20211123.val.json',
+        img_prefix=f'{data_root}/rm_beijing/images/',
         data_cfg=data_cfg,
         pipeline=val_pipeline,
         dataset_info={{_base_.dataset_info}}),
     test=dict(
         type='BottomUpSTGestureDataset',
-        ann_file=f'{data_root}/rm_beijing.20211028.val.json',
-        img_prefix=f'{data_root}/images/',
+        ann_file=f'{data_root}/rm_beijing/rm_beijing.20211123.val.json',
+        img_prefix=f'{data_root}/rm_beijing/images/',
         data_cfg=data_cfg,
         pipeline=test_pipeline,
         dataset_info={{_base_.dataset_info}}),

@@ -1,3 +1,12 @@
+"""
+beijing:    "left_wrist", "left_elbow", "left_shoulder",
+            "head", "neck", "butt",
+            "right_shoulder", "right_elbow", "right_wrist"
+dalian:     "left_wrist", "left_elbow", "left_shoulder",
+            "head",
+            "right_shoulder", "right_elbow", "right_wrist",
+"""
+
 import argparse
 import glob
 import json
