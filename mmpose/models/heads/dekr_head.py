@@ -172,7 +172,7 @@ class DEKRHead(nn.Module):
         losses = dict()
         pred_heatmap, pred_offset = outputs
         heatmap_loss, offset_loss = self.loss(pred_heatmap, pred_offset,
-                                              target, mask, offset, offset_w)
+                                              target[0], mask[0], offset[0], offset_w[0])
         losses['heatmap_loss'] = heatmap_loss
         losses['offset_loss'] = offset_loss
 

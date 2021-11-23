@@ -154,7 +154,7 @@ class HeatmapGenerator:
                                         dtype=np.int)
         self.num_joints = num_joints
         if sigma < 0:
-            sigma = self.output_size.prod()**0.5 / 64
+            sigma = self.output_size.prod() ** 0.5 / 64
         self.sigma = sigma
         size = 6 * sigma + 3
         self.use_udp = use_udp
@@ -179,7 +179,7 @@ class HeatmapGenerator:
                 if pt[2] > 0:
                     x, y = int(pt[0]), int(pt[1])
                     if x < 0 or y < 0 or \
-                       x >= self.output_size[0] or y >= self.output_size[1]:
+                            x >= self.output_size[0] or y >= self.output_size[1]:
                         continue
 
                     if self.use_udp:
@@ -195,16 +195,15 @@ class HeatmapGenerator:
                     br = int(np.round(x + 3 * sigma +
                                       2)), int(np.round(y + 3 * sigma + 2))
 
-                    c, d = max(0,
-                               -ul[0]), min(br[0], self.output_size[0]) - ul[0]
-                    a, b = max(0,
-                               -ul[1]), min(br[1], self.output_size[1]) - ul[1]
+                    c, d = max(0, -ul[0]), \
+                           min(br[0], self.output_size[0]) - ul[0]
+                    a, b = max(0, -ul[1]), \
+                           min(br[1], self.output_size[1]) - ul[1]
 
                     cc, dd = max(0, ul[0]), min(br[0], self.output_size[0])
                     aa, bb = max(0, ul[1]), min(br[1], self.output_size[1])
-                    hms[idx, aa:bb,
-                        cc:dd] = np.maximum(hms[idx, aa:bb, cc:dd], g[a:b,
-                                                                      c:d])
+                    hms[idx, aa:bb, cc:dd] = np.maximum(hms[idx, aa:bb, cc:dd],
+                                                        g[a:b, c:d])
         return hms
 
 
@@ -478,8 +477,7 @@ class BottomUpRandomAffine:
             center = np.array((width / 2, height / 2))
 
         img_scale = np.array([width, height], dtype=np.float32)
-        aug_scale = np.random.random() * (self.max_scale - self.min_scale) \
-            + self.min_scale
+        aug_scale = np.random.random() * (self.max_scale - self.min_scale) + self.min_scale
         img_scale *= aug_scale
         aug_rot = (np.random.random() * 2 - 1) * self.max_rotation
 
@@ -506,8 +504,7 @@ class BottomUpRandomAffine:
                     theta=aug_rot,
                     size_input=center * 2.0,
                     size_dst=np.array(
-                        (_output_size[0], _output_size[1]), dtype=np.float32) -
-                    1.0,
+                        (_output_size[0], _output_size[1]), dtype=np.float32) - 1.0,
                     size_target=scale)
                 mask[i] = cv2.warpAffine(
                     (mask[i] * 255).astype(np.uint8),
@@ -731,13 +728,15 @@ class BottomUpGenerateDEKRTargets:
         Returns:
 
         """
+
         def get_heat_val(sigma, x, y, x0, y0):
             g = np.exp(- ((x - x0) ** 2 + (y - y0) ** 2) / (2 * sigma ** 2))
             return g
 
-        # [K + 1, outp, outp]
-        hms = np.zeros((num_joints + 1, output_res, output_res), dtype=np.float32)
-        ignored_hms = 2 * np.ones((num_joints + 1, output_res, output_res), dtype=np.float32)
+        output_w, output_h = output_res
+        # [K + 1, outph, outpw]
+        hms = np.zeros((num_joints + 1, output_h, output_w), dtype=np.float32)
+        ignored_hms = 2 * np.ones((num_joints + 1, output_h, output_w), dtype=np.float32)
 
         hms_list = [hms, ignored_hms]
         for p in joints:
@@ -748,7 +747,7 @@ class BottomUpGenerateDEKRTargets:
                     sigma = self.center_sigma
                 if pt[2] > 0:
                     x, y = pt[0], pt[1]
-                    if x < 0 or y < 0 or x >= output_res or y >= output_res:
+                    if x < 0 or y < 0 or x >= output_w or y >= output_h:
                         continue
 
                     # 这里选取了以关键点为中心的一小块区域来应用高斯函数。有其下两个目的：
@@ -757,8 +756,8 @@ class BottomUpGenerateDEKRTargets:
                     ul = int(np.floor(x - 3 * sigma - 1)), int(np.floor(y - 3 * sigma - 1))
                     br = int(np.ceil(x + 3 * sigma + 2)), int(np.ceil(y + 3 * sigma + 2))
 
-                    cc, dd = max(0, ul[0]), min(br[0], output_res)
-                    aa, bb = max(0, ul[1]), min(br[1], output_res)
+                    cc, dd = max(0, ul[0]), min(br[0], output_w)
+                    aa, bb = max(0, ul[1]), min(br[1], output_h)
 
                     joint_rg = np.zeros((bb - aa, dd - cc))
                     for sy in range(aa, bb):
@@ -774,7 +773,8 @@ class BottomUpGenerateDEKRTargets:
         # 返回的 ignored_hms 实际上是一个权重。还需要和 mask 相乘，来将 'iscrowd' 等区域的权重置零
         return hms_list
 
-    def generate_offset(self, joints, area, num_joints, output_w, output_h):
+    def generate_offset(self, joints, area, num_joints, output_res):
+        output_w, output_h = output_res
         # offset 计算损失的 target
         offset_map = np.zeros((num_joints * 2, output_h, output_w), dtype=np.float32)
         # offset 损失的 weight，目标面积越大，weight 越小
@@ -820,10 +820,23 @@ class BottomUpGenerateDEKRTargets:
 
     def __call__(self, results):
         img, mask_list, joints_list = results['img'], results['mask'], results['joints'],
+
+        heatmap_size = results['ann_info']['heatmap_size']
+        if not isinstance(heatmap_size, np.ndarray):
+            heatmap_size = np.array(heatmap_size)
+
         # add center joint
-        joints_list_with_center = []
+        target_joints = []
+        target_heatmap = []
+        target_offset = []
+        target_offset_w = []
+        target_mask = []
         area_list = []
-        for joints in joints_list:
+        for mask, joints, output_size in zip(mask_list, joints_list, heatmap_size):
+            if output_size.size > 1:
+                assert len(output_size) == 2
+            else:
+                output_size = [output_size, output_size]
             num_people, k, d = joints.shape
             joints *= joints[:, :, 2:3] > 0
             w = np.max(joints[:, :, 0], axis=1, keepdims=True) - np.min(joints[:, :, 0], axis=1, keepdims=True)
@@ -841,19 +854,23 @@ class BottomUpGenerateDEKRTargets:
                 else:
                     joints_with_center[i, -1, :2] = joints_sum[i] / num
                     joints_with_center[i, -1, 2] = 1
-            joints_list_with_center.append(joints_with_center)
-        heatmap, ignored = self.generate_heatmap(joints_list_with_center[0], results['ann_info']['num_joints'],
-                                                 results['ann_info']['heatmap_size'][0])
-        mask_list[0] = mask_list[0] * ignored
-        offset, offset_w = self.generate_offset(joints_list_with_center[0], area_list[0],
-                                                results['ann_info']['num_joints'],
-                                                results['ann_info']['heatmap_size'][0],
-                                                results['ann_info']['heatmap_size'][0])
+            target_joints.append(joints_with_center)
+            heatmap, ignored = self.generate_heatmap(joints_with_center,
+                                                     results['ann_info']['num_joints'],
+                                                     output_size)
+            mask = mask * ignored
+            offset, offset_w = self.generate_offset(joints_with_center, area,
+                                                    results['ann_info']['num_joints'],
+                                                    output_size)
+            target_heatmap.append(heatmap)
+            target_mask.append(mask)
+            target_offset.append(offset)
+            target_offset_w.append(offset_w)
         # results['targets'], results['joints'], results['mask'], results['offset'], results[
         #     'offset_w'] = [heatmap], joints_list_with_center, mask_list, [offset], [offset_w]
         # DEKR 只有一个 scale
         results['target'], results['joints'], results['mask'], results['offset'], results[
-            'offset_w'] = heatmap, joints_list_with_center[0], mask_list[0], offset, offset_w
+            'offset_w'] = target_heatmap, target_joints, target_mask, target_offset, target_offset_w
         return results
 
 
