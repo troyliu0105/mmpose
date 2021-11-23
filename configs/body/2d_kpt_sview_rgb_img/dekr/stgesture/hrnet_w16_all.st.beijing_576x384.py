@@ -124,6 +124,11 @@ train_pipeline = [
         scale_type='short',
         trans_factor=40),
     dict(type='BottomUpRandomFlip', flip_prob=0.5),
+    dict(type='PhotometricDistortion',
+         brightness_delta=32,
+         contrast_range=(0.8, 1.2),
+         saturation_range=(0.8, 1.2),
+         hue_delta=18),
     dict(type='ToTensor'),
     dict(
         type='BottomUpGenerateDEKRTargets',
