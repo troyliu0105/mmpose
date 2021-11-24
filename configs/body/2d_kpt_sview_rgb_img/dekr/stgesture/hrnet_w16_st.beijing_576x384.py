@@ -173,20 +173,6 @@ data = dict(
             data_cfg=data_cfg,
             pipeline=train_pipeline,
             dataset_info={{_base_.dataset_info}}),
-        dict(
-            type='BottomUpSTGestureDataset',
-            ann_file=f'{data_root}/rm_dalian/rm_dalian.20211123.train.json',
-            img_prefix=f'{data_root}/rm_dalian/images/',
-            data_cfg=data_cfg,
-            pipeline=train_pipeline,
-            dataset_info={{_base_.dataset_info}}),
-        dict(
-            type='BottomUpSTGestureDataset',
-            ann_file=f'{data_root}/rm_zhuzhou/rm_zhuzhou.20211123.train.json',
-            img_prefix=f'{data_root}/rm_zhuzhou/JpgImages/',
-            data_cfg=data_cfg,
-            pipeline=train_pipeline,
-            dataset_info={{_base_.dataset_info}})
     ],
     val=dict(
         type='BottomUpSTGestureDataset',
