@@ -1,6 +1,7 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import os
 import warnings
+from typing import List
 
 import cv2
 import mmcv
@@ -554,10 +555,14 @@ def inference_bottom_up_pose_model(model,
             h.layer_outputs['heatmap'] = result['output_heatmap']
 
         returned_outputs.append(h.layer_outputs)
+        # 过滤掉不想显示的点
+        inference_channels = cfg.channel_cfg.inference_channel
+        for idx in range(len(result['preds'])):
+            result['preds'][idx] = result['preds'][idx][inference_channels]
 
         for idx, pred in enumerate(result['preds']):
             area = (np.max(pred[:, 0]) - np.min(pred[:, 0])) * (
-                np.max(pred[:, 1]) - np.min(pred[:, 1]))
+                    np.max(pred[:, 1]) - np.min(pred[:, 1]))
             pose_results.append({
                 'keypoints': pred[:, :3],
                 'score': result['scores'][idx],
@@ -565,7 +570,7 @@ def inference_bottom_up_pose_model(model,
             })
 
         # pose nms
-        keep = oks_nms(pose_results, pose_nms_thr, sigmas=None)
+        keep = oks_nms(pose_results, pose_nms_thr, sigmas=dataset_info.sigmas)
         pose_results = [pose_results[_keep] for _keep in keep]
 
     return pose_results, returned_outputs
@@ -858,3 +863,26 @@ def process_mmdet_results(mmdet_results, cat_id=1):
         person_results.append(person)
 
     return person_results
+
+
+def process_dataset_info(dataset_info: DatasetInfo, inference_channel: List[int]):
+    from copy import deepcopy
+    # noinspection PyProtectedMember
+    dinfo_dict = deepcopy(dataset_info._dataset_info)
+    dinfo_dict['keypoint_info'] = {i: dinfo_dict['keypoint_info'][idx]
+                                   for i, idx in enumerate(inference_channel)}
+    keypoint_names = [dinfo_dict['keypoint_info'][i]["name"] for i in dinfo_dict['keypoint_info']]
+    # 去除 swap 关键点
+    for part_id in dinfo_dict['keypoint_info']:
+        if dinfo_dict['keypoint_info'][part_id]['swap'] not in keypoint_names:
+            dinfo_dict['keypoint_info'][part_id]['swap'] = ""
+    # 去除 skeleton
+    skeleton_infos = []
+    for idx, info in dinfo_dict['skeleton_info'].items():
+        if all([l in keypoint_names for l in info['link']]):
+            skeleton_infos.append(info)
+    dinfo_dict['skeleton_info'] = {i: link for i, link in enumerate(skeleton_infos)}
+    dinfo_dict['joint_weights'] = [dinfo_dict['joint_weights'][i] for i in inference_channel]
+    dinfo_dict['sigmas'] = [dinfo_dict['sigmas'][i] for i in inference_channel]
+    dataset_info = DatasetInfo(dinfo_dict)
+    return dataset_info
