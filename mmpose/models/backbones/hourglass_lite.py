@@ -4,7 +4,6 @@ import copy
 import torch.nn as nn
 from mmcv.cnn import constant_init, ConvModule, normal_init
 from torch.nn.modules.batchnorm import _BatchNorm
-from torch.nn.modules.module import T
 
 from mmpose.utils import get_root_logger
 from .base_backbone import BaseBackbone
@@ -156,7 +155,7 @@ class HourglassNetLite(BaseBackbone):
 
         return out_feats
 
-    def train(self: T, mode: bool = True) -> T:
+    def train(self, mode: bool = True):
         super().train(mode)
         self._freeze_stages()
         return self
