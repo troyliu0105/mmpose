@@ -202,13 +202,6 @@ data = dict(
             data_cfg=data_cfg,
             pipeline=train_pipeline,
             dataset_info={{_base_.dataset_info}}),
-        dict(
-            type='BottomUpSTGestureDataset',
-            ann_file=f'{data_root}/mhp/annotations/mhp_train.json',
-            img_prefix=f'{data_root}/mhp/train/images/',
-            data_cfg=data_cfg,
-            pipeline=train_pipeline,
-            dataset_info={{_base_.dataset_info}})
     ],
     val=dict(
         type='BottomUpSTGestureDataset',
