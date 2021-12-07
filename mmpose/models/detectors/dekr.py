@@ -339,6 +339,8 @@ def up_interpolate(x, size, mode='bilinear'):
 
 def get_final_preds(grouped_joints, center, scale, heatmap_size):
     final_results = []
+    if len(grouped_joints) == 0:
+        return []
     for person in grouped_joints[0]:
         joints = np.zeros((person.shape[0], 3))
         joints = transform_preds(person, center, scale, heatmap_size)
