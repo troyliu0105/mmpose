@@ -12,10 +12,21 @@ from .topdown_mpii_trb_dataset import TopDownMpiiTrbDataset
 from .topdown_ochuman_dataset import TopDownOCHumanDataset
 from .topdown_posetrack18_dataset import TopDownPoseTrack18Dataset
 from .topdown_st_gesture_dataset import TopDownSTGestureDataset
+from .topdown_posetrack18_video_dataset import TopDownPoseTrack18VideoDataset
 
 __all__ = [
-    'TopDownAicDataset', 'TopDownCocoDataset', 'TopDownCocoWholeBodyDataset',
-    'TopDownCrowdPoseDataset', 'TopDownMpiiDataset', 'TopDownMpiiTrbDataset',
-    'TopDownOCHumanDataset', 'TopDownPoseTrack18Dataset',
-    'TopDownHalpeDataset', 'TopDownJhmdbDataset', 'TopDownMhpDataset', 'TopDownH36MDataset', 'TopDownSTGestureDataset'
+    'TopDownAicDataset',
+    'TopDownCocoDataset',
+    'TopDownCocoWholeBodyDataset',
+    'TopDownCrowdPoseDataset',
+    'TopDownMpiiDataset',
+    'TopDownMpiiTrbDataset',
+    'TopDownOCHumanDataset',
+    'TopDownPoseTrack18Dataset',
+    'TopDownJhmdbDataset',
+    'TopDownMhpDataset',
+    'TopDownH36MDataset',
+    'TopDownHalpeDataset',
+    'TopDownPoseTrack18VideoDataset',
+    'TopDownSTGestureDataset'
 ]

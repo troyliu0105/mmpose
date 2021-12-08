@@ -165,6 +165,12 @@ We demonstrate the superiority of our MMPose framework in terms of speed and acc
 
 More details about the benchmark are available on [benchmark.md](docs/benchmark.md).
 
+## Inference Speed
+
+We summarize the model complexity and inference speed of major models in MMPose, including FLOPs, parameter counts and inference speeds on both CPU and GPU devices with different batch sizes.
+
+Please refer to [inference_speed_summary.md](docs/inference_speed_summary.md) for more details.
+
 ## Installation
 
 Please refer to [install.md](docs/install.md) for installation.
@@ -229,6 +235,8 @@ We wish that the toolbox and benchmark could serve the growing research communit
 - [MMTracking](https://github.com/open-mmlab/mmtracking): OpenMMLab video perception toolbox and benchmark.
 - [MMPose](https://github.com/open-mmlab/mmpose): OpenMMLab pose estimation toolbox and benchmark.
 - [MMEditing](https://github.com/open-mmlab/mmediting): OpenMMLab image and video editing toolbox.
-- [MMOCR](https://github.com/open-mmlab/mmocr): A Comprehensive Toolbox for Text Detection, Recognition and Understanding.
+- [MMOCR](https://github.com/open-mmlab/mmocr): A comprehensive toolbox for text detection, recognition and understanding.
 - [MMGeneration](https://github.com/open-mmlab/mmgeneration): OpenMMLab next-generation toolbox for generative models.
 - [MMFlow](https://github.com/open-mmlab/mmflow): OpenMMLab optical flow toolbox and benchmark.
+- [MMFewShot](https://github.com/open-mmlab/mmfewshot): OpenMMLab fewshot learning toolbox and benchmark.
+- [MMHuman3D](https://github.com/open-mmlab/mmhuman3d): OpenMMLab 3D human parametric model toolbox and benchmark.

@@ -4,10 +4,11 @@ from .interhand_3d import Interhand3D
 from .mesh import ParametricMesh
 from .multi_task import MultiTask
 from .pose_lifter import PoseLifter
+from .posewarper import PoseWarper
 from .top_down import TopDown
 from .dekr import DEKR
 
 __all__ = [
     'TopDown', 'AssociativeEmbedding', 'ParametricMesh', 'MultiTask',
-    'PoseLifter', 'Interhand3D', "DEKR"
+    'PoseLifter', 'Interhand3D', "DEKR", 'PoseWarper'
 ]
