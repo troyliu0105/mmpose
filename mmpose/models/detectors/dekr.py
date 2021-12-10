@@ -10,7 +10,7 @@ from mmcv.visualization.image import imshow
 
 from mmpose.core.evaluation import (aggregate_scale, aggregate_stage_flip,
                                     flip_feature_maps)
-from mmpose.core.visualization import imshow_keypoints
+from mmpose.core.visualization import imshow_keypoints, imshow_bboxes
 from .base import BasePose
 from .. import builder
 from ..builder import POSENETS
@@ -311,11 +311,17 @@ class DEKR(BasePose):
         img_h, img_w, _ = img.shape
 
         pose_result = []
+        bbox_result = []
         for res in result:
             pose_result.append(res['keypoints'])
+            if 'bbox' in res:
+                bbox_result.append(res['bbox'])
 
         imshow_keypoints(img, pose_result, skeleton, kpt_score_thr,
-                         pose_kpt_color, pose_link_color, radius, thickness)
+                         pose_kpt_color, pose_link_color, radius, thickness, show_keypoint_weight=show_keypoint_weight)
+        if len(bbox_result) and bbox_color is not None:
+            bbox_result = np.stack(bbox_result, axis=0)
+            imshow_bboxes(img, bbox_result, colors=bbox_color, thickness=thickness, show=False)
 
         if show:
             imshow(img, win_name, wait_time)

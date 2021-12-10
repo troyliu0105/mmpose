@@ -36,7 +36,7 @@ def _compute_iou(bboxA, bboxB):
     return iou
 
 
-def _track_by_iou(res, results_last, thr):
+def _track_by_iou(res, results_last, thr, sigmas=None):
     """Get track id using IoU tracking greedily.
 
     Args:
@@ -75,7 +75,7 @@ def _track_by_iou(res, results_last, thr):
     return track_id, results_last, match_result
 
 
-def _track_by_oks(res, results_last, thr):
+def _track_by_oks(res, results_last, thr, sigmas=None):
     """Get track id using OKS tracking greedily.
 
     Args:
@@ -102,7 +102,7 @@ def _track_by_oks(res, results_last, thr):
         [res_last['keypoints'].reshape((-1)) for res_last in results_last])
     area_last = np.array([res_last['area'] for res_last in results_last])
 
-    oks_score = oks_iou(pose, pose_last, area, area_last)
+    oks_score = oks_iou(pose, pose_last, area, area_last, sigmas=sigmas)
 
     max_index = np.argmax(oks_score)
 
@@ -171,7 +171,8 @@ def get_track_id(results,
                  use_oks=False,
                  tracking_thr=0.3,
                  use_one_euro=False,
-                 fps=None):
+                 fps=None,
+                 sigmas=None):
     """Get track id for each person instance on the current frame.
 
     Args:
@@ -202,7 +203,7 @@ def get_track_id(results,
 
     for result in results:
         track_id, results_last, match_result = _track(result, results_last,
-                                                      tracking_thr)
+                                                      tracking_thr, sigmas=sigmas)
         if track_id == -1:
             if np.count_nonzero(result['keypoints'][:, 1]) > min_keypoints:
                 result['track_id'] = next_id
@@ -250,8 +251,8 @@ def vis_pose_tracking_result(model,
     if hasattr(model, 'module'):
         model = model.module
 
-    palette = np.array([[255, 128, 0], [255, 153, 51], [255, 178, 102],
-                        [230, 230, 0], [255, 153, 255], [153, 204, 255],
+    palette = np.array([[230, 230, 0], [255, 153, 255], [153, 204, 255],
+                        [255, 128, 0], [255, 153, 51], [255, 178, 102],
                         [255, 102, 255], [255, 51, 255], [102, 178, 255],
                         [51, 153, 255], [255, 153, 153], [255, 102, 102],
                         [255, 51, 51], [153, 255, 153], [102, 255, 102],

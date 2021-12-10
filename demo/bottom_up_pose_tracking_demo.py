@@ -8,6 +8,7 @@ import cv2
 from mmpose.apis import (get_track_id, inference_bottom_up_pose_model,
                          init_pose_model, vis_pose_tracking_result)
 from mmpose.datasets import DatasetInfo
+from mmpose.apis.inference import process_dataset_info
 
 
 def main():
@@ -72,6 +73,7 @@ def main():
         assert (dataset == 'BottomUpCocoDataset')
     else:
         dataset_info = DatasetInfo(dataset_info)
+    dataset_info = process_dataset_info(dataset_info, pose_model.cfg.channel_cfg.inference_channel)
 
     cap = cv2.VideoCapture(args.video_path)
     fps = None
@@ -124,7 +126,8 @@ def main():
             use_oks=args.use_oks_tracking,
             tracking_thr=args.tracking_thr,
             use_one_euro=args.euro,
-            fps=fps)
+            fps=fps,
+            sigmas=dataset_info.sigmas)
 
         # show the results
         vis_img = vis_pose_tracking_result(
