@@ -2,6 +2,7 @@
 # Adapted from https://github.com/princeton-vl/pose-ae-train/
 # Original licence: Copyright (c) 2017, umich-vl, under BSD 3-Clause License.
 # ------------------------------------------------------------------------------
+from typing import List
 
 import numpy as np
 import torch
@@ -404,3 +405,171 @@ class HeatmapParser:
             results = [results]
 
         return results, scores
+
+
+class DEKRParser(object):
+    def __init__(self, cfg):
+        self.detection_threshold = cfg.get("detection_threshold", 0.1)
+        self.max_num_people = cfg.get("max_num_people", 30)
+        self.decrease = cfg.get("decrease", 0.8)
+        self.nms_thre = cfg.get("nms_thre", 0.05)
+        self.nms_num_thre = cfg.get("nms_num_thre", 7)
+
+    def parse(self, heatmaps: List[torch.Tensor], posemaps: List[torch.Tensor],
+              revsersed_scale_list: List[float], test_scale_factor: List[float]):
+        poses = []
+        heatmap_sum = 0
+        for heatmap, posemap, reversed_scale in zip(heatmaps, posemaps, revsersed_scale_list):
+            h, w = heatmap.shape[2:]
+            heatmap_sum += self.up_interpolate(heatmap,
+                                               size=(int(reversed_scale * h), int(reversed_scale * w)))
+            # [1, H, W]
+            center_heatmap = heatmap[0, -1:]
+            pose_ind, ctr_score = self.get_maximum_from_heatmap(center_heatmap)
+            posemap = posemap[0] \
+                .permute(1, 2, 0) \
+                .view(center_heatmap.shape[1] * center_heatmap.shape[2], -1, 2)
+            pose = reversed_scale * posemap[pose_ind]
+            ctr_score = ctr_score[:, None].expand(-1, pose.shape[-2])[:, :, None]
+            poses.append(torch.cat([pose, ctr_score], dim=2))
+        heatmap_avg = heatmap_sum / len(heatmaps)
+        poses, scores = self.pose_nms(heatmap_avg, poses,
+                                      test_scale_factor)
+
+        return poses, scores
+
+    @staticmethod
+    def up_interpolate(x, size, mode='bilinear'):
+        H = x.size()[2]
+        W = x.size()[3]
+        scale_h = int(size[0] / H)
+        scale_w = int(size[1] / W)
+        inter_x = torch.nn.functional.interpolate(x, size=[size[0] - scale_h + 1, size[1] - scale_w + 1],
+                                                  align_corners=True, mode=mode)
+        padd = torch.nn.ReplicationPad2d((0, scale_w - 1, 0, scale_h - 1))
+        return padd(inter_x)
+
+    @staticmethod
+    def get_heat_value(pose_coord, heatmap):
+        kpt_now, num_joints, _ = pose_coord.shape
+        heatval = torch.zeros((kpt_now, num_joints, 1), device=pose_coord.device)
+        for i in range(kpt_now):
+            for j in range(num_joints):
+                k1, k2 = int(pose_coord[i, j, 0]), int(pose_coord[i, j, 0]) + 1
+                k3, k4 = int(pose_coord[i, j, 1]), int(pose_coord[i, j, 1]) + 1
+                u = pose_coord[i, j, 0] - int(pose_coord[i, j, 0])
+                v = pose_coord[i, j, 1] - int(pose_coord[i, j, 1])
+                if k2 < heatmap.shape[2] and k1 >= 0 \
+                        and k4 < heatmap.shape[1] and k3 >= 0:
+                    heatval[i, j, 0] = \
+                        heatmap[j, k3, k1] * (1 - v) * (1 - u) + heatmap[j, k4, k1] * (1 - u) * v + \
+                        heatmap[j, k3, k2] * u * (1 - v) + heatmap[j, k4, k2] * u * v
+        return heatval
+
+    @staticmethod
+    def nms_core(pose_coord, heat_score, nms_thre, nms_num_thre):
+        def cal_area_2_torch(v):
+            w = torch.max(v[:, :, 0], -1)[0] - torch.min(v[:, :, 0], -1)[0]
+            h = torch.max(v[:, :, 1], -1)[0] - torch.min(v[:, :, 1], -1)[0]
+            return w * w + h * h
+
+        num_people, num_joints, _ = pose_coord.shape
+        pose_area = cal_area_2_torch(pose_coord)[:, None].repeat(1, num_people * num_joints)
+        pose_area = pose_area.reshape(num_people, num_people, num_joints)
+
+        pose_diff = pose_coord[:, None, :, :] - pose_coord
+        pose_diff.pow_(2)
+        pose_dist = pose_diff.sum(3)
+        pose_dist.sqrt_()
+        pose_thre = nms_thre * torch.sqrt(pose_area)
+        pose_dist = (pose_dist < pose_thre).sum(2)
+        nms_pose = pose_dist > nms_num_thre
+
+        ignored_pose_inds = []
+        keep_pose_inds = []
+        for i in range(nms_pose.shape[0]):
+            if i in ignored_pose_inds:
+                continue
+            keep_inds = nms_pose[i].nonzero().cpu().numpy()
+            keep_inds = [list(kind)[0] for kind in keep_inds]
+            keep_scores = heat_score[keep_inds]
+            ind = torch.argmax(keep_scores)
+            keep_ind = keep_inds[ind]
+            if keep_ind in ignored_pose_inds:
+                continue
+            keep_pose_inds += [keep_ind]
+            ignored_pose_inds += list(set(keep_inds) - set(ignored_pose_inds))
+
+        return keep_pose_inds
+
+    def get_maximum_from_heatmap(self, heatmap):
+        def hierarchical_pool(heatmap):
+            pool1 = torch.nn.MaxPool2d(3, 1, 1)
+            pool2 = torch.nn.MaxPool2d(5, 1, 2)
+            pool3 = torch.nn.MaxPool2d(7, 1, 3)
+            map_size = (heatmap.shape[1] + heatmap.shape[2]) / 2.0
+            if map_size > 300:
+                maxm = pool3(heatmap[None, :, :, :])
+            elif map_size > 200:
+                maxm = pool2(heatmap[None, :, :, :])
+            else:
+                maxm = pool1(heatmap[None, :, :, :])
+
+            return maxm
+
+        maxm = hierarchical_pool(heatmap)
+        maxm = torch.eq(maxm, heatmap).float()
+        heatmap = heatmap * maxm
+        scores = heatmap.view(-1)
+        scores, pos_ind = scores.topk(self.max_num_people)
+
+        # cfg.TEST.KEYPOINT_THRESHOLD
+        select_ind = (scores > self.detection_threshold).nonzero()
+        scores = scores[select_ind][:, 0]
+        pos_ind = pos_ind[select_ind][:, 0]
+
+        return pos_ind, scores
+
+    def pose_nms(self, heatmap_avg, poses, scale_factor):
+        """
+        NMS for the regressed poses results.
+
+        Args:
+            heatmap_avg (Tensor): Avg of the heatmaps at all scales (1, 1+num_joints, w, h)
+            poses (List): Gather of the pose proposals [(num_people, num_joints, 3)]
+        """
+        scale1_index = sorted(scale_factor, reverse=True).index(1.0)
+        pose_norm = poses[scale1_index]
+        max_score = pose_norm[:, :, 2].max() if pose_norm.shape[0] else 1
+
+        for i, pose in enumerate(poses):
+            if i != scale1_index:
+                max_score_scale = pose[:, :, 2].max() if pose.shape[0] else 1
+                pose[:, :, 2] = pose[:, :, 2] / max_score_scale * max_score * self.decrease
+
+        pose_score = torch.cat([pose[:, :, 2:] for pose in poses], dim=0)
+        pose_coord = torch.cat([pose[:, :, :2] for pose in poses], dim=0)
+
+        if pose_coord.shape[0] == 0:
+            return [], []
+
+        num_people, num_joints, _ = pose_coord.shape
+        heatval = self.get_heat_value(pose_coord, heatmap_avg[0])
+        # [topk], 相当于每个人关键点的平均得分作为 heat_score
+        heat_score = (torch.sum(heatval, dim=1) / num_joints)[:, 0]
+
+        pose_score = pose_score * heatval
+        poses = torch.cat([pose_coord.cpu(), pose_score.cpu()], dim=2)
+
+        keep_pose_inds = self.nms_core(pose_coord, heat_score, self.nms_thre, self.nms_num_thre)
+        poses = poses[keep_pose_inds]
+        heat_score = heat_score[keep_pose_inds]
+
+        if len(keep_pose_inds) > self.max_num_people:
+            heat_score, topk_inds = torch.topk(heat_score, self.max_num_people)
+            poses = poses[topk_inds]
+
+        poses = [poses.numpy()]
+        scores = [i[:, 2].mean() for i in poses[0]]
+
+        return poses, scores
