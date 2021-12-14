@@ -17,6 +17,12 @@ from mmpose.datasets import build_dataset
 from mmpose.models import build_posenet
 from mmpose.utils import collect_env, get_root_logger
 
+try:
+    from torch.distributed.elastic.multiprocessing.errors import record
+except ImportError:
+    def record(fn):
+        return fn
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a pose model')
@@ -70,6 +76,7 @@ def parse_args():
     return args
 
 
+@record
 def main():
     args = parse_args()
 
