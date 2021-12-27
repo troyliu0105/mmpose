@@ -44,7 +44,8 @@ def pytorch2jit(model,
                 input_shape,
                 device,
                 output_file='tmp.jit',
-                verify=False):
+                verify=False,
+                use_half=False):
     """Convert pytorch model to onnx model.
 
     Args:
@@ -57,9 +58,12 @@ def pytorch2jit(model,
         verify (bool): Determines whether to verify the onnx model.
             Default: False.
     """
-    model.to(device=device).eval()
+    model.eval().to(device=device)
 
     one_img = torch.randn(input_shape).to(device=device)
+    if use_half:
+        model.half()
+        one_img = one_img.half()
 
     # register_extra_symbolics(opset_version)
     with torch.jit.optimized_execution(should_optimize=True):
@@ -100,6 +104,7 @@ def parse_args():
     parser.add_argument(
         '--device', default='cuda:0', help='Device used for inference')
     parser.add_argument('--output-file', type=str, default='tmp.jit')
+    parser.add_argument('--half', action='store_true', default='export float16 TorchScript model')
     parser.add_argument(
         '--verify',
         action='store_true',
@@ -133,4 +138,5 @@ if __name__ == '__main__':
         args.shape,
         device=args.device,
         output_file=args.output_file,
-        verify=args.verify)
+        verify=args.verify,
+        use_half=args.half)
