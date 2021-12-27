@@ -8,6 +8,7 @@ import mmcv
 
 from mmpose.apis import (inference_bottom_up_pose_model, init_pose_model,
                          vis_pose_result)
+from mmpose.apis.inference import process_dataset_info
 from mmpose.datasets import DatasetInfo
 
 
@@ -81,6 +82,7 @@ def main():
         assert (dataset == 'BottomUpCocoDataset')
     else:
         dataset_info = DatasetInfo(dataset_info)
+    dataset_info = process_dataset_info(dataset_info, pose_model.cfg.channel_cfg.inference_channel)
 
     # optional
     return_heatmap = False
