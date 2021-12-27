@@ -59,8 +59,8 @@ model = dict(
                 num_modules=1,
                 num_branches=1,
                 block='BOTTLENECK',
-                num_blocks=(4, ),
-                num_channels=(16, )),
+                num_blocks=(4,),
+                num_channels=(16,)),
             stage2=dict(
                 num_modules=1,
                 num_branches=2,
@@ -125,6 +125,17 @@ train_pipeline = [
         scale_type='short',
         trans_factor=40),
     dict(type='BottomUpRandomFlip', flip_prob=0.5),
+    dict(
+        type='Albumentation',
+        transforms=[
+            dict(type='Blur', blur_limit=(3, 5), p=0.3),
+            dict(type='ChannelShuffle'),
+            dict(type='ImageCompression', quality_lower=70, quality_upper=100)
+        ],
+        keymap={
+            'img' : 'image',
+            'mask': 'mask_tmp'
+        }),
     dict(type='PhotometricDistortion',
          brightness_delta=32,
          contrast_range=(0.8, 1.2),
