@@ -562,7 +562,7 @@ def inference_bottom_up_pose_model(model,
 
         for idx, pred in enumerate(result['preds']):
             area = (np.max(pred[:, 0]) - np.min(pred[:, 0])) * (
-                    np.max(pred[:, 1]) - np.min(pred[:, 1]))
+                np.max(pred[:, 1]) - np.min(pred[:, 1]))
             pose_results.append({
                 'keypoints': pred[:, :3],
                 'score': result['scores'][idx],
@@ -570,7 +570,11 @@ def inference_bottom_up_pose_model(model,
             })
 
         # pose nms
-        keep = oks_nms(pose_results, pose_nms_thr, sigmas=dataset_info.sigmas)
+        try:
+            sigmas = np.array(model.cfg.data.test.dataset_info.sigmas)
+        except (KeyError, AttributeError):
+            sigmas = None
+        keep = oks_nms(pose_results, pose_nms_thr, sigmas=sigmas)
         pose_results = [pose_results[_keep] for _keep in keep]
 
     return pose_results, returned_outputs
