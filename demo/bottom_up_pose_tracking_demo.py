@@ -74,6 +74,7 @@ def main():
     else:
         dataset_info = DatasetInfo(dataset_info)
     dataset_info = process_dataset_info(dataset_info, pose_model.cfg.channel_cfg.inference_channel)
+    pose_model.cfg.data['test']['dataset_info'] = dataset_info
 
     cap = cv2.VideoCapture(args.video_path)
     fps = None

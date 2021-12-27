@@ -76,6 +76,13 @@ train_pipeline = [
     dict(
         type='TopDownGetRandomScaleRotation', rot_factor=40, scale_factor=0.5),
     dict(type='TopDownAffine'),
+    dict(
+        type='Albumentation',
+        transforms=[
+            dict(type='Blur', blur_limit=(3, 5), p=0.3),
+            dict(type='ChannelShuffle'),
+            dict(type='ImageCompression', quality_lower=70, quality_upper=100)
+        ]),
     dict(type='ToTensor'),
     dict(type='TopDownGenerateTarget', sigma=2),
     dict(
@@ -110,21 +117,21 @@ data = dict(
     test_dataloader=dict(samples_per_gpu=32),
     train=dict(
         type='TopDownSTGestureDataset',
-        ann_file=f'{data_root}/zhuzhou.train.json',
+        ann_file=f'{data_root}/rm_zhuzhou.20211123.train.json',
         img_prefix=f'{data_root}/JpgImages/',
         data_cfg=data_cfg,
         pipeline=train_pipeline,
         dataset_info={{_base_.dataset_info}}),
     val=dict(
         type='TopDownSTGestureDataset',
-        ann_file=f'{data_root}/zhuzhou.val.json',
+        ann_file=f'{data_root}/rm_zhuzhou.20211123.val.json',
         img_prefix=f'{data_root}/JpgImages/',
         data_cfg=data_cfg,
         pipeline=val_pipeline,
         dataset_info={{_base_.dataset_info}}),
     test=dict(
         type='TopDownSTGestureDataset',
-        ann_file=f'{data_root}/zhuzhou.val.json',
+        ann_file=f'{data_root}/rm_zhuzhou.20211123.val.json',
         img_prefix=f'{data_root}/JpgImages/',
         data_cfg=data_cfg,
         pipeline=test_pipeline,
