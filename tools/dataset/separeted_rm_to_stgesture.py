@@ -1,5 +1,5 @@
 """
-0:0,1:1,2:2:,3:3,4:4,5:8,6:5,7:6,8:7
+0:0,1:1,2:2:,3:3,4:4,5:8,6:5,7:6,8:7,9:11,10:9
 beijing:    "left_wrist", "left_elbow", "left_shoulder",
             "head", "neck", "butt",
             "right_shoulder", "right_elbow", "right_wrist"
@@ -77,7 +77,8 @@ if __name__ == '__main__':
                         kps = np.concatenate((points, points_type[:, None]), axis=-1)
                         dest_kps = np.zeros((len(kps_labels), 3), dtype=np.int32)
                         for src, dst in mapper.items():
-                            dest_kps[dst] = kps[src]
+                            if src < len(kps):
+                                dest_kps[dst] = kps[src]
                         valid_idx = dest_kps[:, -1] != 0
                         dest_kps[~valid_idx, :] = 0
                         min_x = np.maximum(0, np.min(dest_kps[valid_idx, 0]) - 1)
