@@ -20,6 +20,7 @@ from .seresnext import SEResNeXt
 from .shufflenet_v1 import ShuffleNetV1
 from .shufflenet_v2 import ShuffleNetV2
 from .tcn import TCN
+from .v2v_net import V2VNet
 from .vgg import VGG
 from .repvgg import RepVGG
 from .vipnas_mbv3 import ViPNAS_MobileNetV3
@@ -29,6 +30,7 @@ __all__ = [
     'AlexNet', 'HourglassNet', 'HourglassAENet', 'HourglassNetLite', 'HRNet', 'MobileNetV2',
     'MobileNetV3', 'RegNet', 'ResNet', 'ResNetV1d', 'ResNeXt', 'SCNet',
     'SEResNet', 'SEResNeXt', 'ShuffleNetV1', 'ShuffleNetV2', 'CPM', 'RSN',
-    'MSPN', 'ResNeSt', 'VGG', 'RepVGG', 'TCN', 'ViPNAS_ResNet', 'LiteHRNet',
-    'ViPNAS_MobileNetV3',
+    'RepVGG',
+    'MSPN', 'ResNeSt', 'VGG', 'TCN', 'ViPNAS_ResNet', 'ViPNAS_MobileNetV3',
+    'LiteHRNet', 'V2VNet'
 ]
