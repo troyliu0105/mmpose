@@ -45,7 +45,8 @@ def pytorch2onnx(model,
                  opset_version=11,
                  show=False,
                  output_file='tmp.onnx',
-                 verify=False):
+                 verify=False,
+                 tolerance=1.e-5):
     """Convert pytorch model to onnx model.
 
     Args:
@@ -94,13 +95,13 @@ def pytorch2onnx(model,
         assert len(net_feed_input) == 1
         sess = rt.InferenceSession(output_file)
         onnx_results = sess.run(None,
-                                {net_feed_input[0]: one_img.detach().numpy()})
+                                {net_feed_input[0]: one_img.detach().cpu().numpy()})
 
         # compare results
         assert len(pytorch_results) == len(onnx_results)
         for pt_result, onnx_result in zip(pytorch_results, onnx_results):
             assert np.allclose(
-                pt_result.detach().cpu(), onnx_result, atol=1.e-5
+                pt_result.detach().cpu(), onnx_result, atol=tolerance
             ), 'The outputs are different between Pytorch and ONNX'
         print('The numerical values are same between Pytorch and ONNX')
 
@@ -113,6 +114,7 @@ def parse_args():
     parser.add_argument('--show', action='store_true', help='show onnx graph')
     parser.add_argument('--output-file', type=str, default='tmp.onnx')
     parser.add_argument('--opset-version', type=int, default=11)
+    parser.add_argument('--tolerance', type=float, default=1.e-5)
     parser.add_argument(
         '--verify',
         action='store_true',
@@ -125,6 +127,23 @@ def parse_args():
         help='input size')
     args = parser.parse_args()
     return args
+
+
+def network_to_half(model):
+    """
+    Convert model to half precision in a batchnorm-safe way.
+    """
+    def bn_to_float(module):
+        """
+        BatchNorm layers need parameters in single precision. Find all layers and convert
+        them back to float.
+        """
+        if isinstance(module, torch.nn.modules.batchnorm._BatchNorm):
+            module.float()
+        for child in module.children():
+            bn_to_float(child)
+        return module
+    return bn_to_float(model.half())
 
 
 if __name__ == '__main__':
@@ -149,4 +168,5 @@ if __name__ == '__main__':
         opset_version=args.opset_version,
         show=args.show,
         output_file=args.output_file,
-        verify=args.verify)
+        verify=args.verify,
+        tolerance=args.tolerance)

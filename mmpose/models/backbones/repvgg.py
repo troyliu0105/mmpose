@@ -110,7 +110,7 @@ class RepVGGBlock(nn.Module):
                 for i in range(self.in_channels):
                     kernel_value[i, i % input_dim, 1, 1] = 1
                 self.id_tensor = torch.from_numpy(kernel_value).to(branch.weight.device)
-            kernel = self.id_tensor
+            kernel = self.id_tensor.to(device=branch.weight.device, dtype=branch.weight.dtype)
             running_mean = branch.running_mean
             running_var = branch.running_var
             gamma = branch.weight

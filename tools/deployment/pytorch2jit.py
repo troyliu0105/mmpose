@@ -58,7 +58,7 @@ def pytorch2jit(model,
         verify (bool): Determines whether to verify the onnx model.
             Default: False.
     """
-    model.eval().to(device=device)
+    model = model.eval().to(device=device).float()
 
     one_img = torch.randn(input_shape).to(device=device)
     if use_half:
@@ -104,7 +104,7 @@ def parse_args():
     parser.add_argument(
         '--device', default='cuda:0', help='Device used for inference')
     parser.add_argument('--output-file', type=str, default='tmp.jit')
-    parser.add_argument('--half', action='store_true', default='export float16 TorchScript model')
+    parser.add_argument('--half', action='store_true', default=False, help='export float16 TorchScript model')
     parser.add_argument(
         '--verify',
         action='store_true',
