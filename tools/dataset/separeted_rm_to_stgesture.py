@@ -1,5 +1,5 @@
 """
-0:0,1:1,2:2:,3:3,4:4,5:8,6:5,7:6,8:7,9:11,10:9
+0:0,1:1,2:2,3:3,4:4,5:8,6:5,7:6,8:7,9:11,10:9
 beijing:    "left_wrist", "left_elbow", "left_shoulder",
             "head", "neck", "butt",
             "right_shoulder", "right_elbow", "right_wrist"

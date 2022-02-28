@@ -16,10 +16,11 @@ from .dekr_head import DEKRHead
 from .voxelpose_head import CuboidCenterHead, CuboidPoseHead
 
 __all__ = [
+    "DEKRHead",
     'TopdownHeatmapSimpleHead', 'TopdownHeatmapMultiStageHead',
     'TopdownHeatmapMSMUHead', 'TopdownHeatmapBaseHead',
     'AEHigherResolutionHead', 'AESimpleHead', 'AEMultiStageHead',
     'DeepposeRegressionHead', 'TemporalRegressionHead', 'Interhand3DHead',
-    'HMRMeshHead', 'DeconvHead', 'ViPNASHeatmapSimpleHead', "DEKRHead"
+    'HMRMeshHead', 'DeconvHead', 'ViPNASHeatmapSimpleHead',
     'CuboidCenterHead', 'CuboidPoseHead'
 ]

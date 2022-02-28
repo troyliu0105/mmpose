@@ -1,9 +1,7 @@
-_base_ = ['../../../../_base_/datasets/st_rail_gesture.py']
-log_level = 'INFO'
-load_from = None
-resume_from = None
-dist_params = dict(backend='nccl')
-workflow = [('train', 1)]
+_base_ = [
+    '../../../../_base_/default_runtime.py',
+    '../../../../_base_/datasets/st_rail_gesture.py'
+]
 checkpoint_config = dict(interval=10)
 evaluation = dict(interval=10, metric='mAP', save_best='AP')
 
@@ -18,8 +16,8 @@ lr_config = dict(
     warmup='linear',
     warmup_iters=500,
     warmup_ratio=0.001,
-    step=[70, 90])
-total_epochs = 110
+    step=[120, 135])
+total_epochs = 160
 log_config = dict(
     interval=50,
     hooks=[
@@ -34,8 +32,7 @@ channel_cfg = dict(
         [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
     ],
     # inference_channel=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
-    inference_channel=[0, 1, 2, 3, 4, 8, 5, 6, 7])
-    # inference_channel=[0, 1, 2, 3, 4, 8, 5, 6, 7, 11, 9])
+    inference_channel=[0, 1, 2, 3, 4, 8, 5, 6, 7, 11, 9])
 
 data_cfg = dict(
     image_size=[576, 384],
@@ -52,11 +49,40 @@ data_cfg = dict(
 # model settings
 model = dict(
     type='DEKR',
-    backbone=dict(type='RepVGG', arch="a1", out_indices=[1, 2, 3]),
+    backbone=dict(
+        type='HRNet',
+        in_channels=3,
+        # pretrained='https://download.openmmlab.com/mmpose/pretrain_models/hrnet_w32-36af842e.pth',
+        extra=dict(
+            stage1=dict(
+                num_modules=1,
+                num_branches=1,
+                block='BOTTLENECK',
+                num_blocks=(4,),
+                num_channels=(64,)),
+            stage2=dict(
+                num_modules=1,
+                num_branches=2,
+                block='BASIC',
+                num_blocks=(4, 4),
+                num_channels=(32, 64)),
+            stage3=dict(
+                num_modules=4,
+                num_branches=3,
+                block='BASIC',
+                num_blocks=(4, 4, 4),
+                num_channels=(32, 64, 128)),
+            stage4=dict(
+                num_modules=3,
+                num_branches=4,
+                block='BASIC',
+                num_blocks=(4, 4, 4, 4),
+                num_channels=(32, 64, 128, 256))),
+    ),
     keypoint_head=dict(
         type='DEKRHead',
-        in_channels=[64, 128, 256],
-        in_index=[0, 1, 2],
+        in_channels=[32],
+        in_index=[0],
         num_joints=channel_cfg['num_output_channels'],
         transition_head_channels=32,
         offset_pre_kpt=15,
@@ -70,7 +96,7 @@ model = dict(
             num_stages=1,
             bg_weight=0.1,
             heatmaps_loss_factor=1.0,
-            offset_loss_factor=0.03,
+            offset_loss_factor=0.05,
         )),
     train_cfg=dict(),
     test_cfg=dict(
@@ -165,11 +191,27 @@ data = dict(
         dict(
             type='BottomUpSTGestureDataset',
             ann_file=
-            f'{data_root}/coco/annotations/stgesture_person_keypoints_val2017.json',
-            img_prefix=f'{data_root}/coco/val2017/',
+            f'{data_root}/rails/rm_shuohuang/rm_shuohuang.20220105.just11pts.train.json',
+            img_prefix=f'{data_root}/rails/rm_shuohuang/images/',
             data_cfg=data_cfg,
             pipeline=train_pipeline,
-            dataset_info={{_base_.dataset_info}})
+            dataset_info={{_base_.dataset_info}}),
+        dict(
+            type='BottomUpSTGestureDataset',
+            ann_file=
+            f'{data_root}/rails/rm_shuohuang/rm_shuohuang.20220228.just11pts.train.json',
+            img_prefix=f'{data_root}/rails/rm_shuohuang/images/',
+            data_cfg=data_cfg,
+            pipeline=train_pipeline,
+            dataset_info={{_base_.dataset_info}}),
+        # dict(
+        #     type='BottomUpSTGestureDataset',
+        #     ann_file=
+        #     f'{data_root}/coco/annotations/stgesture_person_keypoints_val2017.json',
+        #     img_prefix=f'{data_root}/coco/val2017/',
+        #     data_cfg=data_cfg,
+        #     pipeline=train_pipeline,
+        #     dataset_info={{_base_.dataset_info}})
     ],
     val=dict(
         type='BottomUpSTGestureDataset',

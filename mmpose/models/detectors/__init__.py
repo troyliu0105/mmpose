@@ -10,7 +10,7 @@ from .dekr import DEKR
 from .voxelpose import VoxelPose
 
 __all__ = [
+    "DEKR",
     'TopDown', 'AssociativeEmbedding', 'ParametricMesh', 'MultiTask',
-    'PoseLifter', 'Interhand3D', "DEKR", 'PoseWarper'
-    'PoseLifter', 'Interhand3D', 'PoseWarper', 'VoxelPose'
+    'PoseLifter', 'Interhand3D', 'PoseWarper', 'VoxelPose',
 ]
