@@ -3,6 +3,7 @@ from .alexnet import AlexNet
 from .cpm import CPM
 from .hourglass import HourglassNet
 from .hourglass_ae import HourglassAENet
+from .hrformer import HRFormer
 from .hourglass_lite import HourglassNetLite
 from .hrnet import HRNet
 from .litehrnet import LiteHRNet
@@ -32,5 +33,5 @@ __all__ = [
     'SEResNet', 'SEResNeXt', 'ShuffleNetV1', 'ShuffleNetV2', 'CPM', 'RSN',
     'RepVGG',
     'MSPN', 'ResNeSt', 'VGG', 'TCN', 'ViPNAS_ResNet', 'ViPNAS_MobileNetV3',
-    'LiteHRNet', 'V2VNet'
+    'LiteHRNet', 'V2VNet', 'HRFormer'
 ]

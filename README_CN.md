@@ -26,11 +26,11 @@
 [![Average time to resolve an issue](https://isitmaintained.com/badge/resolution/open-mmlab/mmpose.svg)](https://github.com/open-mmlab/mmpose/issues)
 [![Percentage of issues still open](https://isitmaintained.com/badge/open/open-mmlab/mmpose.svg)](https://github.com/open-mmlab/mmpose/issues)
 
-[📘文档](https://mmpose.readthedocs.io/en/v0.23.0/) |
-[🛠️安装](https://mmpose.readthedocs.io/en/v0.23.0/install.html) |
-[👀模型库](https://mmpose.readthedocs.io/en/v0.23.0/modelzoo.html) |
-[📜论文库](https://mmpose.readthedocs.io/en/v0.23.0/papers/algorithms.html) |
-[🆕更新日志](https://mmpose.readthedocs.io/en/v0.23.0/changelog.html) |
+[📘文档](https://mmpose.readthedocs.io/en/v0.24.0/) |
+[🛠️安装](https://mmpose.readthedocs.io/en/v0.24.0/install.html) |
+[👀模型库](https://mmpose.readthedocs.io/en/v0.24.0/modelzoo.html) |
+[📜论文库](https://mmpose.readthedocs.io/en/v0.24.0/papers/algorithms.html) |
+[🆕更新日志](https://mmpose.readthedocs.io/en/v0.24.0/changelog.html) |
 [🤔报告问题](https://github.com/open-mmlab/mmpose/issues/new/choose)
 </div>
 
@@ -73,9 +73,12 @@ https://user-images.githubusercontent.com/15977946/124654387-0fd3c500-ded1-11eb-
 
 ## 最新进展
 
-* 2022-02-11: MMPose [v0.23.0](https://github.com/open-mmlab/mmpose/releases/tag/v0.23.0) 已经发布. 主要更新包括:
-  * 新增 [MMPose Webcam API](https://github.com/open-mmlab/mmpose/tree/master/tools/webcam): 用于快速开发基于 MMPose 的简单视频交互应用
-  * 支持 CPU 训练和测试
+* 2022-03-07: MMPose [v0.24.0](https://github.com/open-mmlab/mmpose/releases/tag/v0.24.0) 已经发布. 主要更新包括:
+  * 支持 HRFormer ["HRFormer: High-Resolution Vision Transformer for Dense Predict"](https://proceedings.neurips.cc/paper/2021/hash/3bbfdde8842a5c44a0323518eec97cbe-Abstract.html), NeurIPS'2021
+  * 支持在 Windows 系统使用 pip 安装 MMPose
+* 2022-02-28: [MMDeploy](https://github.com/open-mmlab/mmdeploy) v0.3.0 支持 MMPose 模型部署
+* 2022-02-11: [MMPose Webcam API](https://github.com/open-mmlab/mmpose/tree/master/tools/webcam) 和相关教程文档发布
+  * MMPose Webcam API 用于快速开发基于 MMPose 的简单视频交互应用
 * 2021-12-29: OpenMMLab 开放平台已经正式上线! 欢迎试用基于 MMPose 的[姿态估计 Demo](https://platform.openmmlab.com/web-demo/demo/poseestimation)
 
 ## 安装
@@ -169,7 +172,7 @@ MMPose 也提供了其他更详细的教程:
 * [x] [COCO-WholeBody](https://mmpose.readthedocs.io/zh_CN/latest/papers/datasets.html#coco-wholebody-eccv-2020) \[[homepage](https://github.com/jin-s13/COCO-WholeBody/)\] (ECCV'2020)
 * [x] [MacaquePose](https://mmpose.readthedocs.io/zh_CN/latest/papers/datasets.html#macaquepose-biorxiv-2020) \[[homepage](http://www.pri.kyoto-u.ac.jp/datasets/macaquepose/index.html)\] (bioRxiv'2020)
 * [x] [InterHand2.6M](https://mmpose.readthedocs.io/zh_CN/latest/papers/datasets.html#interhand2-6m-eccv-2020) \[[homepage](https://mks0601.github.io/InterHand2.6M/)\] (ECCV'2020)
-* [x] [AP-10K](https://arxiv.org/abs/2108.12617) \[[homepage](https://github.com/AlexTheBad/AP-10K)\] (NeurIPS'2021)
+* [x] [AP-10K](https://mmpose.readthedocs.io/en/latest/papers/datasets.html#ap-10k-neurips-2021) \[[homepage](https://github.com/AlexTheBad/AP-10K)\] (NeurIPS'2021)
 * [x] [Horse-10](https://mmpose.readthedocs.io/zh_CN/latest/papers/datasets.html#horse-10-wacv-2021) \[[homepage](http://www.mackenziemathislab.org/horse10)\] (WACV'2021)
 
 </details>
@@ -187,6 +190,7 @@ MMPose 也提供了其他更详细的教程:
 * [x] [MobilenetV2](https://mmpose.readthedocs.io/zh_CN/latest/papers/backbones.html#mobilenetv2-cvpr-2018) (CVPR'2018)
 * [x] [ResNetV1D](https://mmpose.readthedocs.io/zh_CN/latest/papers/backbones.html#resnetv1d-cvpr-2019) (CVPR'2019)
 * [x] [ResNeSt](https://mmpose.readthedocs.io/zh_CN/latest/papers/backbones.html#resnest-arxiv-2020) (ArXiv'2020)
+* [x] [HRFormer](https://mmpose.readthedocs.io/zh_CN/latest/papers/backbones.html#hrformer-nips-2021) (NIPS'2021)
 
 </details>
 
