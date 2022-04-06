@@ -26,11 +26,11 @@
 [![Average time to resolve an issue](https://isitmaintained.com/badge/resolution/open-mmlab/mmpose.svg)](https://github.com/open-mmlab/mmpose/issues)
 [![Percentage of issues still open](https://isitmaintained.com/badge/open/open-mmlab/mmpose.svg)](https://github.com/open-mmlab/mmpose/issues)
 
-[📘Documentation](https://mmpose.readthedocs.io/en/v0.24.0/) |
-[🛠️Installation](https://mmpose.readthedocs.io/en/v0.24.0/install.html) |
-[👀Model Zoo](https://mmpose.readthedocs.io/en/v0.24.0/modelzoo.html) |
-[📜Papers](https://mmpose.readthedocs.io/en/v0.24.0/papers/algorithms.html) |
-[🆕Update News](https://mmpose.readthedocs.io/en/v0.24.0/changelog.html) |
+[📘Documentation](https://mmpose.readthedocs.io/en/v0.25.0/) |
+[🛠️Installation](https://mmpose.readthedocs.io/en/v0.25.0/install.html) |
+[👀Model Zoo](https://mmpose.readthedocs.io/en/v0.25.0/modelzoo.html) |
+[📜Papers](https://mmpose.readthedocs.io/en/v0.25.0/papers/algorithms.html) |
+[🆕Update News](https://mmpose.readthedocs.io/en/v0.25.0/changelog.html) |
 [🤔Reporting Issues](https://github.com/open-mmlab/mmpose/issues/new/choose)
 </div>
 
@@ -73,9 +73,11 @@ https://user-images.githubusercontent.com/15977946/124654387-0fd3c500-ded1-11eb-
 
 ## News
 
-* 2022-03-07: MMPose [v0.24.0](https://github.com/open-mmlab/mmpose/releases/tag/v0.24.0) is released. Major updates includes:
-  * Support HRFormer ["HRFormer: High-Resolution Vision Transformer for Dense Predict"](https://proceedings.neurips.cc/paper/2021/hash/3bbfdde8842a5c44a0323518eec97cbe-Abstract.html), NeurIPS'2021
-  * Support Windows installation with pip
+* 2022-04-02: MMPose [v0.25.0](https://github.com/open-mmlab/mmpose/releases/tag/v0.25.0) is released. Major updates includes:
+  * Support Shelf and Campus datasets with pre-trained models ["3D Pictorial Structures for Multiple Human Pose Estimation"](http://campar.in.tum.de/pub/belagiannis2014cvpr/belagiannis2014cvpr.pdf), CVPR'2014
+  * New module `Smoother`: Pose temporal smoothing with configurable filters
+  * Add multi-view multi-person 3D pose estimation demo
+  * Support SmoothNet for pose smoothing ["SmoothNet: A Plug-and-Play Network for Refining Human Poses in Videos"](https://arxiv.org/abs/2112.13715), arXiv'2021
 * 2022-02-28: MMPose model deployment is supported by [MMDeploy](https://github.com/open-mmlab/mmdeploy) v0.3.0
 * 2022-02-11: [MMPose Webcam API](https://github.com/open-mmlab/mmpose/tree/master/tools/webcam) is released with documents and tutorials
   * MMPose Webcam API is a simple yet powerful tool to develop interactive webcam applications with MMPose functions
@@ -83,9 +85,21 @@ https://user-images.githubusercontent.com/15977946/124654387-0fd3c500-ded1-11eb-
 
 ## Installation
 
-Please refer to [install.md](docs/en/install.md) for installation guide.
+MMPose depends on [PyTorch](https://pytorch.org/) and [MMCV](https://github.com/open-mmlab/mmcv).
+Below are quick steps for installation.
+Please refer to [install.md](docs/en/install.md) for detailed installation guide.
 
-## Get Started
+```shell
+conda create -n open-mmlab python=3.8 pytorch=1.10 cudatoolkit=11.3 torchvision -c pytorch -y
+conda activate open-mmlab
+pip3 install openmim
+mim install mmcv-full
+git clone https://github.com/open-mmlab/mmpose.git
+cd mmpose
+pip3 install -e .
+```
+
+## Getting Started
 
 Please see [getting_started.md](docs/en/getting_started.md) for the basic usage of MMPose.
 There are also tutorials:
@@ -137,6 +151,7 @@ A summary can be found in the [Model Zoo](https://mmpose.readthedocs.io/en/lates
 * [x] [UDP](https://mmpose.readthedocs.io/en/latest/papers/techniques.html#udp-cvpr-2020) (CVPR'2020)
 * [x] [Albumentations](https://mmpose.readthedocs.io/en/latest/papers/techniques.html#albumentations-information-2020) (Information'2020)
 * [x] [SoftWingloss](https://mmpose.readthedocs.io/en/latest/papers/techniques.html#softwingloss-tip-2021) (TIP'2021)
+* [x] [SmoothNet](/configs/_base_/filters/smoothnet_h36m.md) (arXiv'2021)
 
 </details>
 
@@ -149,7 +164,7 @@ A summary can be found in the [Model Zoo](https://mmpose.readthedocs.io/en/lates
 * [x] [MPII](https://mmpose.readthedocs.io/en/latest/papers/datasets.html#mpii-cvpr-2014) \[[homepage](http://human-pose.mpi-inf.mpg.de/)\] (CVPR'2014)
 * [x] [Human3.6M](https://mmpose.readthedocs.io/en/latest/papers/datasets.html#human3-6m-tpami-2014) \[[homepage](http://vision.imar.ro/human3.6m/description.php)\] (TPAMI'2014)
 * [x] [COCO](https://mmpose.readthedocs.io/en/latest/papers/datasets.html#coco-eccv-2014) \[[homepage](http://cocodataset.org/)\] (ECCV'2014)
-* [x] [CMU Panoptic](https://mmpose.readthedocs.io/en/latest/papers/datasets.html#cmu-panoptic-iccv-2015) (ICCV'2015)
+* [x] [CMU Panoptic](https://mmpose.readthedocs.io/en/latest/papers/datasets.html#cmu-panoptic-iccv-2015) \[[homepage](http://domedb.perception.cs.cmu.edu/)\] (ICCV'2015)
 * [x] [DeepFashion](https://mmpose.readthedocs.io/en/latest/papers/datasets.html#deepfashion-cvpr-2016) \[[homepage](http://mmlab.ie.cuhk.edu.hk/projects/DeepFashion/LandmarkDetection.html)\] (CVPR'2016)
 * [x] [300W](https://mmpose.readthedocs.io/en/latest/papers/datasets.html#300w-imavis-2016) \[[homepage](https://ibug.doc.ic.ac.uk/resources/300-W/)\] (IMAVIS'2016)
 * [x] [RHD](https://mmpose.readthedocs.io/en/latest/papers/datasets.html#rhd-iccv-2017) \[[homepage](https://lmb.informatik.uni-freiburg.de/resources/datasets/RenderedHandposeDataset.en.html)\] (ICCV'2017)
