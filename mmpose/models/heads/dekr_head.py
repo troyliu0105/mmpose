@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-import torchvision.ops as ops
+from mmcv import ops
 from mmcv.cnn import (ConvModule, make_res_layer)
 from mmcv.cnn.resnet import BasicBlock
 

@@ -94,7 +94,7 @@ def pytorch2onnx(model,
         ]
         net_feed_input = list(set(input_all) - set(input_initializer))
         assert len(net_feed_input) == 1
-        sess = rt.InferenceSession(output_file)
+        sess = rt.InferenceSession(output_file, providers=['CPUExecutionProvider'])
         onnx_results = sess.run(None,
                                 {net_feed_input[0]: one_img.detach().cpu().numpy()})
 
