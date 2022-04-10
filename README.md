@@ -2,17 +2,17 @@
   <img src="resources/mmpose-logo.png" width="450"/>
   <div>&nbsp;</div>
   <div align="center">
-    <b><font size="5">OpenMMLab website</font></b>
+    <b>OpenMMLab website</b>
     <sup>
       <a href="https://openmmlab.com">
-        <i><font size="4">HOT</font></i>
+        <i>HOT</i>
       </a>
     </sup>
     &nbsp;&nbsp;&nbsp;&nbsp;
-    <b><font size="5">OpenMMLab platform</font></b>
+    <b>OpenMMLab platform</b>
     <sup>
       <a href="https://platform.openmmlab.com">
-        <i><font size="4">TRY IT OUT</font></i>
+        <i>TRY IT OUT</i>
       </a>
     </sup>
   </div>
@@ -73,7 +73,7 @@ https://user-images.githubusercontent.com/15977946/124654387-0fd3c500-ded1-11eb-
 
 ## News
 
-* 2022-04-02: MMPose [v0.25.0](https://github.com/open-mmlab/mmpose/releases/tag/v0.25.0) is released. Major updates includes:
+* 2022-04-02: MMPose [v0.25.0](https://github.com/open-mmlab/mmpose/releases/tag/v0.25.0) is released. Major updates include:
   * Support Shelf and Campus datasets with pre-trained models ["3D Pictorial Structures for Multiple Human Pose Estimation"](http://campar.in.tum.de/pub/belagiannis2014cvpr/belagiannis2014cvpr.pdf), CVPR'2014
   * New module `Smoother`: Pose temporal smoothing with configurable filters
   * Add multi-view multi-person 3D pose estimation demo
