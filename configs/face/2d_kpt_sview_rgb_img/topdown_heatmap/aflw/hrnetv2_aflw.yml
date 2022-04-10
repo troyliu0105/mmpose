@@ -1,22 +1,21 @@
 Collections:
-- Name: hrnetv2_aflw
+- Name: HRNetv2
+  Paper:
+    Title: Deep High-Resolution Representation Learning for Visual Recognition
+    URL: https://ieeexplore.ieee.org/abstract/document/9052469/
+  README: https://github.com/open-mmlab/mmpose/blob/master/docs/en/papers/backbones/hrnetv2.md
+Models:
+- Config: configs/face/2d_kpt_sview_rgb_img/topdown_heatmap/aflw/hrnetv2_w18_aflw_256x256.py
+  In Collection: HRNetv2
   Metadata:
     Architecture:
     - HRNetv2
-  README: configs/face/2d_kpt_sview_rgb_img/topdown_heatmap/aflw/hrnetv2_aflw.md
-  Paper:
-  - https://ieeexplore.ieee.org/abstract/document/9052469/
-  - https://ieeexplore.ieee.org/abstract/document/6130513/
-Models:
-- Name: face--2d_kpt_sview_rgb_img--topdown_heatmap--aflw--hrnetv2_w18_aflw_256x256
-  In Collection: hrnetv2_aflw
-  Config: configs/face/2d_kpt_sview_rgb_img/topdown_heatmap/aflw/hrnetv2_w18_aflw_256x256.py
-  Metadata:
     Training Data: AFLW
+  Name: topdown_heatmap_hrnetv2_w18_aflw_256x256
   Results:
-  - Task: 2D Face Landmark Detection
-    Dataset: AFLW
+  - Dataset: AFLW
     Metrics:
-      NME full: 1.41
       NME frontal: 1.27
+      NME full: 1.41
+    Task: Face 2D Keypoint
   Weights: https://download.openmmlab.com/mmpose/face/hrnetv2/hrnetv2_w18_aflw_256x256-f2bbc62b_20210125.pth

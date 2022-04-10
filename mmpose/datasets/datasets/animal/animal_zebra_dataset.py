@@ -1,22 +1,23 @@
-import os
+# Copyright (c) OpenMMLab. All rights reserved.
+import os.path as osp
+import tempfile
+import warnings
 from collections import OrderedDict
 
-import json_tricks as json
 import numpy as np
+from mmcv import Config, deprecated_api_warning
 
-from mmpose.core.evaluation.top_down_eval import (keypoint_auc, keypoint_epe,
-                                                  keypoint_pck_accuracy)
 from ...builder import DATASETS
-from .animal_base_dataset import AnimalBaseDataset
+from ..base import Kpt2dSviewRgbImgTopDownDataset
 
 
 @DATASETS.register_module()
-class AnimalZebraDataset(AnimalBaseDataset):
+class AnimalZebraDataset(Kpt2dSviewRgbImgTopDownDataset):
     """AnimalZebraDataset for animal pose estimation.
 
-    `DeepPoseKit, a software toolkit for fast and robust animal
-     pose estimation using deep learning'
-    Elife'2019. More details can be found in the `paper.
+    "DeepPoseKit, a software toolkit for fast and robust animal
+    pose estimation using deep learning" Elife'2019.
+    More details can be found in the paper.
 
     The dataset loads raw features and apply specified transforms
     to return a dict containing the image tensors and other information.
@@ -39,6 +40,7 @@ class AnimalZebraDataset(AnimalBaseDataset):
             Default: None.
         data_cfg (dict): config
         pipeline (list[dict | callable]): A sequence of data transforms.
+        dataset_info (DatasetInfo): A class containing all dataset info.
         test_mode (bool): Store True when building test or
             validation dataset. Default: False.
     """
@@ -48,19 +50,26 @@ class AnimalZebraDataset(AnimalBaseDataset):
                  img_prefix,
                  data_cfg,
                  pipeline,
+                 dataset_info=None,
                  test_mode=False):
 
+        if dataset_info is None:
+            warnings.warn(
+                'dataset_info is missing. '
+                'Check https://github.com/open-mmlab/mmpose/pull/663 '
+                'for details.', DeprecationWarning)
+            cfg = Config.fromfile('configs/_base_/datasets/zebra.py')
+            dataset_info = cfg._cfg_dict['dataset_info']
+
         super().__init__(
-            ann_file, img_prefix, data_cfg, pipeline, test_mode=test_mode)
+            ann_file,
+            img_prefix,
+            data_cfg,
+            pipeline,
+            dataset_info=dataset_info,
+            test_mode=test_mode)
 
         self.ann_info['use_different_joint_weights'] = False
-        assert self.ann_info['num_joints'] == 9
-        self.ann_info['joint_weights'] = \
-            np.ones((self.ann_info['num_joints'], 1), dtype=np.float32)
-
-        self.ann_info['flip_pairs'] = [[3, 4], [5, 6]]
-
-        self.dataset_name = 'zebra'
         self.db = self._get_db()
 
         print(f'=> num_images: {self.num_images}')
@@ -89,8 +98,7 @@ class AnimalZebraDataset(AnimalBaseDataset):
                 # the ori image is 160x160
                 center, scale = self._xywh2cs(0, 0, 160, 160, 0.8)
 
-                image_file = os.path.join(self.img_prefix,
-                                          self.id2name[img_id])
+                image_file = osp.join(self.img_prefix, self.id2name[img_id])
 
                 gt_db.append({
                     'image_file': image_file,
@@ -109,79 +117,31 @@ class AnimalZebraDataset(AnimalBaseDataset):
 
         return gt_db
 
-    def _report_metric(self, res_file, metrics, pck_thr=0.2, auc_nor=30):
-        """Keypoint evaluation.
-
-        Args:
-            res_file (str): Json file stored prediction results.
-            metrics (str | list[str]): Metric to be performed.
-                Options: 'PCK', 'PCKh', 'AUC', 'EPE'.
-            pck_thr (float): PCK threshold, default as 0.2.
-            pckh_thr (float): PCKh threshold, default as 0.7.
-            auc_nor (float): AUC normalization factor, default as 30 pixel.
-
-        Returns:
-            List: Evaluation results for evaluation metric.
-        """
-        info_str = []
-
-        with open(res_file, 'r') as fin:
-            preds = json.load(fin)
-        assert len(preds) == len(self.db)
-
-        outputs = []
-        gts = []
-        masks = []
-        threshold_bbox = []
-
-        for pred, item in zip(preds, self.db):
-            outputs.append(np.array(pred['keypoints'])[:, :-1])
-            gts.append(np.array(item['joints_3d'])[:, :-1])
-            masks.append((np.array(item['joints_3d_visible'])[:, 0]) > 0)
-            if 'PCK' in metrics:
-                bbox = np.array(item['bbox'])
-                bbox_thr = np.max(bbox[2:])
-                threshold_bbox.append(np.array([bbox_thr, bbox_thr]))
-
-        outputs = np.array(outputs)
-        gts = np.array(gts)
-        masks = np.array(masks)
-        threshold_bbox = np.array(threshold_bbox)
-
-        if 'PCK' in metrics:
-            _, pck, _ = keypoint_pck_accuracy(outputs, gts, masks, pck_thr,
-                                              threshold_bbox)
-            info_str.append(('PCK', pck))
-
-        if 'AUC' in metrics:
-            info_str.append(('AUC', keypoint_auc(outputs, gts, masks,
-                                                 auc_nor)))
-
-        if 'EPE' in metrics:
-            info_str.append(('EPE', keypoint_epe(outputs, gts, masks)))
-
-        return info_str
-
-    def evaluate(self, outputs, res_folder, metric='PCK', **kwargs):
+    @deprecated_api_warning(name_dict=dict(outputs='results'))
+    def evaluate(self, results, res_folder=None, metric='PCK', **kwargs):
         """Evaluate Fly keypoint results. The pose prediction results will be
-        saved in `${res_folder}/result_keypoints.json`.
+        saved in ``${res_folder}/result_keypoints.json``.
 
         Note:
-            batch_size: N
-            num_keypoints: K
-            heatmap height: H
-            heatmap width: W
+            - batch_size: N
+            - num_keypoints: K
+            - heatmap height: H
+            - heatmap width: W
 
         Args:
-            outputs (list(preds, boxes, image_path, output_heatmap))
-                :preds (np.ndarray[N,K,3]): The first two dimensions are
-                    coordinates, score is the third dimension of the array.
-                :boxes (np.ndarray[N,6]): [center[0], center[1], scale[0]
-                    , scale[1],area, score]
-                :image_paths (list[str]): For example, ['Test/source/0.jpg']
-                :output_heatmap (np.ndarray[N, K, H, W]): model outpus.
+            results (list[dict]): Testing results containing the following
+                items:
 
-            res_folder (str): Path of directory to save the results.
+                - preds (np.ndarray[N,K,3]): The first two dimensions are \
+                    coordinates, score is the third dimension of the array.
+                - boxes (np.ndarray[N,6]): [center[0], center[1], scale[0], \
+                    scale[1],area, score]
+                - image_paths (list[str]): For example, ['Test/source/0.jpg']
+                - output_heatmap (np.ndarray[N, K, H, W]): model outputs.
+
+            res_folder (str, optional): The folder to save the testing
+                results. If not specified, a temp folder will be created.
+                Default: None.
             metric (str | list[str]): Metric to be performed.
                 Options: 'PCK', 'AUC', 'EPE'.
 
@@ -194,14 +154,19 @@ class AnimalZebraDataset(AnimalBaseDataset):
             if metric not in allowed_metrics:
                 raise KeyError(f'metric {metric} is not supported')
 
-        res_file = os.path.join(res_folder, 'result_keypoints.json')
+        if res_folder is not None:
+            tmp_folder = None
+            res_file = osp.join(res_folder, 'result_keypoints.json')
+        else:
+            tmp_folder = tempfile.TemporaryDirectory()
+            res_file = osp.join(tmp_folder.name, 'result_keypoints.json')
 
         kpts = []
-        for output in outputs:
-            preds = output['preds']
-            boxes = output['boxes']
-            image_paths = output['image_paths']
-            bbox_ids = output['bbox_ids']
+        for result in results:
+            preds = result['preds']
+            boxes = result['boxes']
+            image_paths = result['image_paths']
+            bbox_ids = result['bbox_ids']
 
             batch_size = len(image_paths)
             for i in range(batch_size):
@@ -221,5 +186,8 @@ class AnimalZebraDataset(AnimalBaseDataset):
         self._write_keypoint_results(kpts, res_file)
         info_str = self._report_metric(res_file, metrics)
         name_value = OrderedDict(info_str)
+
+        if tmp_folder is not None:
+            tmp_folder.cleanup()
 
         return name_value

@@ -1,5 +1,7 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 import os
 import os.path as osp
+import warnings
 from argparse import ArgumentParser
 
 import mmcv
@@ -10,6 +12,7 @@ from mmpose.apis import (inference_pose_lifter_model,
                          inference_top_down_pose_model, vis_3d_pose_result)
 from mmpose.apis.inference import init_pose_model
 from mmpose.core import SimpleCamera
+from mmpose.datasets import DatasetInfo
 
 
 def _keypoint_camera_to_world(keypoints,
@@ -63,7 +66,7 @@ def main():
         '--json-file',
         type=str,
         default=None,
-        help='Json file containing image and bbox inforamtion. Optionally,'
+        help='Json file containing image and bbox information. Optionally,'
         'The Json file can also contain 2D pose information. See'
         '"only-second-stage"')
     parser.add_argument(
@@ -160,6 +163,16 @@ def main():
             'model is supported for the 1st stage (2D pose detection)'
 
         dataset = pose_det_model.cfg.data['test']['type']
+        dataset_info = pose_det_model.cfg.data['test'].get(
+            'dataset_info', None)
+        if dataset_info is None:
+            warnings.warn(
+                'Please set `dataset_info` in the config.'
+                'Check https://github.com/open-mmlab/mmpose/pull/663 '
+                'for details.', DeprecationWarning)
+        else:
+            dataset_info = DatasetInfo(dataset_info)
+
         img_keys = list(coco.imgs.keys())
 
         for i in mmcv.track_iter_progress(range(len(img_keys))):
@@ -184,6 +197,7 @@ def main():
                 bbox_thr=None,
                 format='xywh',
                 dataset=dataset,
+                dataset_info=dataset_info,
                 return_heatmap=False,
                 outputs=None)
 
@@ -203,6 +217,14 @@ def main():
         '"PoseLifter" model is supported for the 2nd stage ' \
         '(2D-to-3D lifting)'
     dataset = pose_lift_model.cfg.data['test']['type']
+    dataset_info = pose_lift_model.cfg.data['test'].get('dataset_info', None)
+    if dataset_info is None:
+        warnings.warn(
+            'Please set `dataset_info` in the config.'
+            'Check https://github.com/open-mmlab/mmpose/pull/663 for details.',
+            DeprecationWarning)
+    else:
+        dataset_info = DatasetInfo(dataset_info)
 
     camera_params = None
     if args.camera_param_file is not None:
@@ -217,6 +239,7 @@ def main():
             pose_lift_model,
             pose_results_2d=[pose_det_results],
             dataset=dataset,
+            dataset_info=dataset_info,
             with_track_id=False)
 
         image_name = pose_det_results[0]['image_name']
@@ -265,6 +288,7 @@ def main():
             pose_lift_model,
             result=pose_lift_results_vis,
             img=image_name,
+            dataset_info=dataset_info,
             out_file=out_file)
 
 

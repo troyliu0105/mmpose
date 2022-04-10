@@ -1,25 +1,30 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 import os.path as osp
+import tempfile
+import warnings
 from collections import OrderedDict, defaultdict
 
 import mmcv
 import numpy as np
+from mmcv import Config, deprecated_api_warning
 
 from mmpose.core.evaluation import (keypoint_3d_auc, keypoint_3d_pck,
                                     keypoint_mpjpe)
+from mmpose.datasets.datasets.base import Kpt3dSviewKpt2dDataset
 from ...builder import DATASETS
-from .body3d_base_dataset import Body3DBaseDataset
 
 
 @DATASETS.register_module()
-class Body3DMpiInf3dhpDataset(Body3DBaseDataset):
+class Body3DMpiInf3dhpDataset(Kpt3dSviewKpt2dDataset):
     """MPI-INF-3DHP dataset for 3D human pose estimation.
 
-    `Monocular 3D Human Pose Estimation In The Wild Using Improved CNN
-    Supervision` 3DV'2017
+    "Monocular 3D Human Pose Estimation In The Wild Using Improved CNN
+    Supervision", 3DV'2017.
     More details can be found in the `paper
     <https://arxiv.org/pdf/1611.09813>`__.
 
     MPI-INF-3DHP keypoint indexes:
+
         0: 'head_top',
         1: 'neck',
         2: 'right_shoulder',
@@ -55,6 +60,7 @@ class Body3DMpiInf3dhpDataset(Body3DBaseDataset):
             - need_camera_param: Whether need camera parameters or not.
                 Default: False.
         pipeline (list[dict | callable]): A sequence of data transforms.
+        dataset_info (DatasetInfo): A class containing all dataset info.
         test_mode (bool): Store True when building test or
             validation dataset. Default: False.
     """
@@ -76,6 +82,30 @@ class Body3DMpiInf3dhpDataset(Body3DBaseDataset):
         'mpjpe', 'p-mpjpe', '3dpck', 'p-3dpck', '3dauc', 'p-3dauc'
     }
 
+    def __init__(self,
+                 ann_file,
+                 img_prefix,
+                 data_cfg,
+                 pipeline,
+                 dataset_info=None,
+                 test_mode=False):
+
+        if dataset_info is None:
+            warnings.warn(
+                'dataset_info is missing. '
+                'Check https://github.com/open-mmlab/mmpose/pull/663 '
+                'for details.', DeprecationWarning)
+            cfg = Config.fromfile('configs/_base_/datasets/mpi_inf_3dhp.py')
+            dataset_info = cfg._cfg_dict['dataset_info']
+
+        super().__init__(
+            ann_file,
+            img_prefix,
+            data_cfg,
+            pipeline,
+            dataset_info=dataset_info,
+            test_mode=test_mode)
+
     def load_config(self, data_cfg):
         super().load_config(data_cfg)
         # mpi-inf-3dhp specific attributes
@@ -95,10 +125,6 @@ class Body3DMpiInf3dhpDataset(Body3DBaseDataset):
 
         # mpi-inf-3dhp specific annotation info
         ann_info = {}
-        ann_info['flip_pairs'] = [[2, 5], [3, 6], [4, 7], [8, 11], [9, 12],
-                                  [10, 13]]
-        ann_info['upper_body_ids'] = (0, 1, 2, 3, 4, 5, 6, 7, 14, 15, 16)
-        ann_info['lower_body_ids'] = (8, 9, 10, 11, 12, 13)
         ann_info['use_different_joint_weights'] = False
 
         self.ann_info.update(ann_info)
@@ -204,12 +230,8 @@ class Body3DMpiInf3dhpDataset(Body3DBaseDataset):
 
         return joints_2d
 
-    def evaluate(self,
-                 outputs,
-                 res_folder,
-                 metric='mpjpe',
-                 logger=None,
-                 **kwargs):
+    @deprecated_api_warning(name_dict=dict(outputs='results'))
+    def evaluate(self, results, res_folder=None, metric='mpjpe', **kwargs):
         metrics = metric if isinstance(metric, list) else [metric]
         for _metric in metrics:
             if _metric not in self.ALLOWED_METRICS:
@@ -217,11 +239,17 @@ class Body3DMpiInf3dhpDataset(Body3DBaseDataset):
                     f'Unsupported metric "{_metric}" for mpi-inf-3dhp dataset.'
                     f'Supported metrics are {self.ALLOWED_METRICS}')
 
-        res_file = osp.join(res_folder, 'result_keypoints.json')
+        if res_folder is not None:
+            tmp_folder = None
+            res_file = osp.join(res_folder, 'result_keypoints.json')
+        else:
+            tmp_folder = tempfile.TemporaryDirectory()
+            res_file = osp.join(tmp_folder.name, 'result_keypoints.json')
+
         kpts = []
-        for output in outputs:
-            preds = output['preds']
-            image_paths = output['target_image_paths']
+        for result in results:
+            preds = result['preds']
+            image_paths = result['target_image_paths']
             batch_size = len(image_paths)
             for i in range(batch_size):
                 target_id = self.name2id[image_paths[i]]
@@ -249,6 +277,9 @@ class Body3DMpiInf3dhpDataset(Body3DBaseDataset):
             else:
                 raise NotImplementedError
             name_value_tuples.extend(_nv_tuples)
+
+        if tmp_folder is not None:
+            tmp_folder.cleanup()
 
         return OrderedDict(name_value_tuples)
 
@@ -278,7 +309,7 @@ class Body3DMpiInf3dhpDataset(Body3DBaseDataset):
 
         preds = np.stack(preds)
         gts = np.stack(gts)
-        masks = np.ones_like(gts[:, :, 0], dtype=np.bool)
+        masks = np.ones_like(gts[:, :, 0], dtype=bool)
 
         err_name = mode.upper()
         if mode == 'mpjpe':
@@ -319,7 +350,7 @@ class Body3DMpiInf3dhpDataset(Body3DBaseDataset):
 
         preds = np.stack(preds)
         gts = np.stack(gts)
-        masks = np.ones_like(gts[:, :, 0], dtype=np.bool)
+        masks = np.ones_like(gts[:, :, 0], dtype=bool)
 
         err_name = mode.upper()
         if mode == '3dpck':
@@ -342,6 +373,7 @@ class Body3DMpiInf3dhpDataset(Body3DBaseDataset):
             keypoint_results (list): Keypoint predictions. See
                 'Body3DMpiInf3dhpDataset.evaluate' for details.
             mode (str): Specify mpjpe variants. Supported options are:
+
                 - ``'3dauc'``: Standard 3DAUC.
                 - ``'p-3dauc'``: 3DAUC after aligning prediction to
                     groundtruth via a rigid transformation (scale, rotation and
@@ -360,7 +392,7 @@ class Body3DMpiInf3dhpDataset(Body3DBaseDataset):
 
         preds = np.stack(preds)
         gts = np.stack(gts)
-        masks = np.ones_like(gts[:, :, 0], dtype=np.bool)
+        masks = np.ones_like(gts[:, :, 0], dtype=bool)
 
         err_name = mode.upper()
         if mode == '3dauc':

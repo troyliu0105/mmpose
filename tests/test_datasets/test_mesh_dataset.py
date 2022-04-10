@@ -1,3 +1,6 @@
+# Copyright (c) OpenMMLab. All rights reserved.
+import tempfile
+
 from mmpose.datasets import DATASETS
 
 
@@ -47,7 +50,8 @@ def test_mesh_H36M_dataset():
             keypoints_3d=item['joints_3d'][None, ...],
             image_path=item['image_file'])
         outputs.append(pred)
-    eval_result = custom_dataset.evaluate(outputs, 'tests/data/h36m')
+    with tempfile.TemporaryDirectory() as tmpdir:
+        eval_result = custom_dataset.evaluate(outputs, tmpdir)
     assert 'MPJPE' in eval_result
     assert 'MPJPE-PA' in eval_result
 

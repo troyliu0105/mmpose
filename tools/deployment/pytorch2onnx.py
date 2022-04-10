@@ -1,11 +1,11 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 import argparse
+import warnings
 
-import mmcv
 import numpy as np
 import torch
-from mmcv.runner import load_checkpoint
 
-from mmpose.models import build_posenet
+from mmpose.apis import init_pose_model
 
 try:
     import onnx
@@ -46,7 +46,8 @@ def pytorch2onnx(model,
                  opset_version=11,
                  show=False,
                  output_file='tmp.onnx',
-                 verify=False):
+                 verify=False,
+                 tolerance=1.e-5):
     """Convert pytorch model to onnx model.
 
     Args:
@@ -93,15 +94,15 @@ def pytorch2onnx(model,
         ]
         net_feed_input = list(set(input_all) - set(input_initializer))
         assert len(net_feed_input) == 1
-        sess = rt.InferenceSession(output_file)
+        sess = rt.InferenceSession(output_file, providers=['CPUExecutionProvider'])
         onnx_results = sess.run(None,
-                                {net_feed_input[0]: one_img.detach().numpy()})
+                                {net_feed_input[0]: one_img.detach().cpu().numpy()})
 
         # compare results
         assert len(pytorch_results) == len(onnx_results)
         for pt_result, onnx_result in zip(pytorch_results, onnx_results):
             assert np.allclose(
-                pt_result.detach().cpu(), onnx_result, atol=1.e-5
+                pt_result.detach().cpu(), onnx_result, atol=tolerance
             ), 'The outputs are different between Pytorch and ONNX'
         print('The numerical values are same between Pytorch and ONNX')
 
@@ -114,6 +115,7 @@ def parse_args():
     parser.add_argument('--show', action='store_true', help='show onnx graph')
     parser.add_argument('--output-file', type=str, default='tmp.onnx')
     parser.add_argument('--opset-version', type=int, default=11)
+    parser.add_argument('--tolerance', type=float, default=1.e-5)
     parser.add_argument(
         '--verify',
         action='store_true',
@@ -128,14 +130,41 @@ def parse_args():
     return args
 
 
+def network_to_half(model):
+    """
+    Convert model to half precision in a batchnorm-safe way.
+    """
+    def bn_to_float(module):
+        """
+        BatchNorm layers need parameters in single precision. Find all layers and convert
+        them back to float.
+        """
+        if isinstance(module, torch.nn.modules.batchnorm._BatchNorm):
+            module.float()
+        for child in module.children():
+            bn_to_float(child)
+        return module
+    return bn_to_float(model.half())
+
+
 if __name__ == '__main__':
     args = parse_args()
 
     assert args.opset_version == 11, 'MMPose only supports opset 11 now'
 
-    cfg = mmcv.Config.fromfile(args.config)
-    # build the model
-    model = build_posenet(cfg.model)
+    # Following strings of text style are from colorama package
+    bright_style, reset_style = '\x1b[1m', '\x1b[0m'
+    red_text, blue_text = '\x1b[31m', '\x1b[34m'
+    white_background = '\x1b[107m'
+
+    msg = white_background + bright_style + red_text
+    msg += 'DeprecationWarning: This tool will be deprecated in future. '
+    msg += blue_text + 'Welcome to use the unified model deployment toolbox '
+    msg += 'MMDeploy: https://github.com/open-mmlab/mmdeploy'
+    msg += reset_style
+    warnings.warn(msg)
+
+    model = init_pose_model(args.config, args.checkpoint, device='cpu')
     model = _convert_batchnorm(model)
 
     # onnx.export does not support kwargs
@@ -145,13 +174,12 @@ if __name__ == '__main__':
         raise NotImplementedError(
             'Please implement the forward method for exporting.')
 
-    checkpoint = load_checkpoint(model, args.checkpoint, map_location='cpu')
-
-    # conver model to onnx file
+    # convert model to onnx file
     pytorch2onnx(
         model,
         args.shape,
         opset_version=args.opset_version,
         show=args.show,
         output_file=args.output_file,
-        verify=args.verify)
+        verify=args.verify,
+        tolerance=args.tolerance)

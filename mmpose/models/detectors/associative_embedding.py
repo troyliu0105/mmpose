@@ -1,12 +1,15 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 import warnings
 
 import mmcv
 import torch
 from mmcv.image import imwrite
+from mmcv.utils.misc import deprecated_api_warning
 from mmcv.visualization.image import imshow
 
-from mmpose.core.evaluation import (aggregate_results, get_group_preds,
-                                    get_multi_stage_outputs)
+from mmpose.core.evaluation import (aggregate_scale, aggregate_stage_flip,
+                                    flip_feature_maps, get_group_preds,
+                                    split_ae_outputs)
 from mmpose.core.post_processing.group import HeatmapParser
 from mmpose.core.visualization import imshow_keypoints
 from .. import builder
@@ -32,7 +35,7 @@ class AssociativeEmbedding(BasePose):
         test_cfg (dict): Config for testing. Default: None.
         pretrained (str): Path to the pretrained models.
         loss_pose (None): Deprecated arguments. Please use
-            `loss_keypoint` for heads instead.
+            ``loss_keypoint`` for heads instead.
     """
 
     def __init__(self,
@@ -48,7 +51,6 @@ class AssociativeEmbedding(BasePose):
         self.backbone = builder.build_backbone(backbone)
 
         if keypoint_head is not None:
-
             if 'loss_keypoint' not in keypoint_head and loss_pose is not None:
                 warnings.warn(
                     '`loss_pose` for BottomUp is deprecated, '
@@ -88,24 +90,27 @@ class AssociativeEmbedding(BasePose):
                 **kwargs):
         """Calls either forward_train or forward_test depending on whether
         return_loss is True.
+
         Note:
-            batch_size: N
-            num_keypoints: K
-            num_img_channel: C
-            img_width: imgW
-            img_height: imgH
-            heatmaps weight: W
-            heatmaps height: H
-            max_num_people: M
+            - batch_size: N
+            - num_keypoints: K
+            - num_img_channel: C
+            - img_width: imgW
+            - img_height: imgH
+            - heatmaps weight: W
+            - heatmaps height: H
+            - max_num_people: M
+
         Args:
-            img(torch.Tensor[NxCximgHximgW]): Input image.
-            targets(List(torch.Tensor[NxKxHxW])): Multi-scale target heatmaps.
-            masks(List(torch.Tensor[NxHxW])): Masks of multi-scale target
-                                              heatmaps
-            joints(List(torch.Tensor[NxMxKx2])): Joints of multi-scale target
-                                                 heatmaps for ae loss
-            img_metas(dict):Information about val&test
-                By default this includes:
+            img (torch.Tensor[N,C,imgH,imgW]): Input image.
+            targets (list(torch.Tensor[N,K,H,W])): Multi-scale target heatmaps.
+            masks (list(torch.Tensor[N,H,W])): Masks of multi-scale target
+                heatmaps
+            joints (list(torch.Tensor[N,M,K,2])): Joints of multi-scale target
+                heatmaps for ae loss
+            img_metas (dict): Information about val & test.
+                By default it includes:
+
                 - "image_file": image path
                 - "aug_data": input
                 - "test_scale_factor": test scale factor
@@ -113,15 +118,14 @@ class AssociativeEmbedding(BasePose):
                 - "center": center of image
                 - "scale": scale of image
                 - "flip_index": flip index of keypoints
-
-            return loss(bool): Option to 'return_loss'. 'return_loss=True' for
-                training, 'return_loss=False' for validation & test
+            return loss (bool): ``return_loss=True`` for training,
+                ``return_loss=False`` for validation & test.
             return_heatmap (bool) : Option to return heatmap.
 
         Returns:
-            dict|tuple: if 'return_loss' is true, then return losses.
-              Otherwise, return predicted poses, scores, image
-              paths and heatmaps.
+            dict|tuple: if 'return_loss' is true, then return losses. \
+                Otherwise, return predicted poses, scores, image \
+                paths and heatmaps.
         """
 
         if return_loss:
@@ -144,13 +148,13 @@ class AssociativeEmbedding(BasePose):
             max_num_people: M
 
         Args:
-            img(torch.Tensor[NxCximgHximgW]): Input image.
-            targets(List(torch.Tensor[NxKxHxW])): Multi-scale target heatmaps.
-            masks(List(torch.Tensor[NxHxW])): Masks of multi-scale target
+            img (torch.Tensor[N,C,imgH,imgW]): Input image.
+            targets (List(torch.Tensor[N,K,H,W])): Multi-scale target heatmaps.
+            masks (List(torch.Tensor[N,H,W])): Masks of multi-scale target
                                               heatmaps
-            joints(List(torch.Tensor[NxMxKx2])): Joints of multi-scale target
+            joints (List(torch.Tensor[N,M,K,2])): Joints of multi-scale target
                                                  heatmaps for ae loss
-            img_metas(dict):Information about val&test
+            img_metas (dict):Information about val&test
                 By default this includes:
                 - "image_file": image path
                 - "aug_data": input
@@ -198,10 +202,10 @@ class AssociativeEmbedding(BasePose):
         """Inference the bottom-up model.
 
         Note:
-            Batchsize = N (currently support batchsize = 1)
-            num_img_channel: C
-            img_width: imgW
-            img_height: imgH
+            - Batchsize: N (currently support batchsize = 1)
+            - num_img_channel: C
+            - img_width: imgW
+            - img_height: imgH
 
         Args:
             flip_index (List(int)):
@@ -225,8 +229,9 @@ class AssociativeEmbedding(BasePose):
 
         result = {}
 
-        aggregated_heatmaps = None
-        tags_list = []
+        scale_heatmaps_list = []
+        scale_tags_list = []
+
         for idx, s in enumerate(sorted(test_scale_factor, reverse=True)):
             image_resized = aug_data[idx].to(img.device)
 
@@ -234,45 +239,95 @@ class AssociativeEmbedding(BasePose):
             if self.with_keypoint:
                 outputs = self.keypoint_head(features)
 
+            heatmaps, tags = split_ae_outputs(
+                outputs, self.test_cfg['num_joints'],
+                self.test_cfg['with_heatmaps'], self.test_cfg['with_ae'],
+                self.test_cfg.get('select_output_index', range(len(outputs))))
+
             if self.test_cfg.get('flip_test', True):
                 # use flip test
                 features_flipped = self.backbone(
                     torch.flip(image_resized, [3]))
                 if self.with_keypoint:
                     outputs_flipped = self.keypoint_head(features_flipped)
+
+                heatmaps_flipped, tags_flipped = split_ae_outputs(
+                    outputs_flipped, self.test_cfg['num_joints'],
+                    self.test_cfg['with_heatmaps'], self.test_cfg['with_ae'],
+                    self.test_cfg.get('select_output_index',
+                                      range(len(outputs))))
+
+                heatmaps_flipped = flip_feature_maps(
+                    heatmaps_flipped, flip_index=img_metas['flip_index'])
+                if self.test_cfg['tag_per_joint']:
+                    tags_flipped = flip_feature_maps(
+                        tags_flipped, flip_index=img_metas['flip_index'])
+                else:
+                    tags_flipped = flip_feature_maps(
+                        tags_flipped, flip_index=None, flip_output=True)
+
             else:
-                outputs_flipped = None
+                heatmaps_flipped = None
+                tags_flipped = None
 
-            _, heatmaps, tags = get_multi_stage_outputs(
-                outputs,
-                outputs_flipped,
-                self.test_cfg['num_joints'],
-                self.test_cfg['with_heatmaps'],
-                self.test_cfg['with_ae'],
-                self.test_cfg['tag_per_joint'],
-                img_metas['flip_index'],
-                self.test_cfg['project2image'],
-                base_size,
-                align_corners=self.use_udp)
-
-            aggregated_heatmaps, tags_list = aggregate_results(
-                s,
-                aggregated_heatmaps,
-                tags_list,
+            aggregated_heatmaps = aggregate_stage_flip(
                 heatmaps,
-                tags,
-                test_scale_factor,
-                self.test_cfg['project2image'],
-                self.test_cfg.get('flip_test', True),
-                align_corners=self.use_udp)
+                heatmaps_flipped,
+                index=-1,
+                project2image=self.test_cfg['project2image'],
+                size_projected=base_size,
+                align_corners=self.test_cfg.get('align_corners', True),
+                aggregate_stage='average',
+                aggregate_flip='average')
 
-        # average heatmaps of different scales
-        aggregated_heatmaps = aggregated_heatmaps / float(
-            len(test_scale_factor))
-        tags = torch.cat(tags_list, dim=4)
+            aggregated_tags = aggregate_stage_flip(
+                tags,
+                tags_flipped,
+                index=-1,
+                project2image=self.test_cfg['project2image'],
+                size_projected=base_size,
+                align_corners=self.test_cfg.get('align_corners', True),
+                aggregate_stage='concat',
+                aggregate_flip='concat')
+
+            if s == 1 or len(test_scale_factor) == 1:
+                if isinstance(aggregated_tags, list):
+                    scale_tags_list.extend(aggregated_tags)
+                else:
+                    scale_tags_list.append(aggregated_tags)
+
+            if isinstance(aggregated_heatmaps, list):
+                scale_heatmaps_list.extend(aggregated_heatmaps)
+            else:
+                scale_heatmaps_list.append(aggregated_heatmaps)
+
+        aggregated_heatmaps = aggregate_scale(
+            scale_heatmaps_list,
+            align_corners=self.test_cfg.get('align_corners', True),
+            aggregate_scale='average')
+
+        aggregated_tags = aggregate_scale(
+            scale_tags_list,
+            align_corners=self.test_cfg.get('align_corners', True),
+            aggregate_scale='unsqueeze_concat')
+
+        heatmap_size = aggregated_heatmaps.shape[2:4]
+        tag_size = aggregated_tags.shape[2:4]
+        if heatmap_size != tag_size:
+            tmp = []
+            for idx in range(aggregated_tags.shape[-1]):
+                tmp.append(
+                    torch.nn.functional.interpolate(
+                        aggregated_tags[..., idx],
+                        size=heatmap_size,
+                        mode='bilinear',
+                        align_corners=self.test_cfg.get('align_corners',
+                                                        True)).unsqueeze(-1))
+            aggregated_tags = torch.cat(tmp, dim=-1)
 
         # perform grouping
-        grouped, scores = self.parser.parse(aggregated_heatmaps, tags,
+        grouped, scores = self.parser.parse(aggregated_heatmaps,
+                                            aggregated_tags,
                                             self.test_cfg['adjust'],
                                             self.test_cfg['refine'])
 
@@ -298,6 +353,8 @@ class AssociativeEmbedding(BasePose):
 
         return result
 
+    @deprecated_api_warning({'pose_limb_color': 'pose_link_color'},
+                            cls_name='AssociativeEmbedding')
     def show_result(self,
                     img,
                     result,
@@ -305,7 +362,7 @@ class AssociativeEmbedding(BasePose):
                     kpt_score_thr=0.3,
                     bbox_color=None,
                     pose_kpt_color=None,
-                    pose_limb_color=None,
+                    pose_link_color=None,
                     radius=4,
                     thickness=1,
                     font_scale=0.5,
@@ -321,12 +378,13 @@ class AssociativeEmbedding(BasePose):
             result (list[dict]): The results to draw over `img`
                 (bbox_result, pose_result).
             skeleton (list[list]): The connection of keypoints.
+                skeleton is 0-based indexing.
             kpt_score_thr (float, optional): Minimum score of keypoints
                 to be shown. Default: 0.3.
             pose_kpt_color (np.array[Nx3]`): Color of N keypoints.
                 If None, do not draw keypoints.
-            pose_limb_color (np.array[Mx3]): Color of M limbs.
-                If None, do not draw limbs.
+            pose_link_color (np.array[Mx3]): Color of M links.
+                If None, do not draw links.
             radius (int): Radius of circles.
             thickness (int): Thickness of lines.
             font_scale (float): Font scales of texts.
@@ -342,7 +400,6 @@ class AssociativeEmbedding(BasePose):
         Returns:
             Tensor: Visualized image only if not `show` or `out_file`
         """
-
         img = mmcv.imread(img)
         img = img.copy()
         img_h, img_w, _ = img.shape
@@ -352,7 +409,7 @@ class AssociativeEmbedding(BasePose):
             pose_result.append(res['keypoints'])
 
         imshow_keypoints(img, pose_result, skeleton, kpt_score_thr,
-                         pose_kpt_color, pose_limb_color, radius, thickness)
+                         pose_kpt_color, pose_link_color, radius, thickness)
 
         if show:
             imshow(img, win_name, wait_time)

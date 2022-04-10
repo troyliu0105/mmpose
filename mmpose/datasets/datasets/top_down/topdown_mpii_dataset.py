@@ -1,20 +1,23 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 import json
-import os
+import os.path as osp
+import warnings
 from collections import OrderedDict
 
 import numpy as np
+from mmcv import Config, deprecated_api_warning
 from scipy.io import loadmat, savemat
 
 from ...builder import DATASETS
-from .topdown_base_dataset import TopDownBaseDataset
+from ..base import Kpt2dSviewRgbImgTopDownDataset
 
 
 @DATASETS.register_module()
-class TopDownMpiiDataset(TopDownBaseDataset):
+class TopDownMpiiDataset(Kpt2dSviewRgbImgTopDownDataset):
     """MPII Dataset for top-down pose estimation.
 
-    `2D Human Pose Estimation: New Benchmark and State of the Art Analysis'
-    CVPR'2014. More details can be found in the `paper
+    "2D Human Pose Estimation: New Benchmark and State of the Art Analysis"
+    ,CVPR'2014. More details can be found in the `paper
     <http://human-pose.mpi-inf.mpg.de/contents/andriluka14cvpr.pdf>`__ .
 
     The dataset loads raw features and apply specified transforms
@@ -45,6 +48,7 @@ class TopDownMpiiDataset(TopDownBaseDataset):
             Default: None.
         data_cfg (dict): config
         pipeline (list[dict | callable]): A sequence of data transforms.
+        dataset_info (DatasetInfo): A class containing all dataset info.
         test_mode (bool): Store True when building test or
             validation dataset. Default: False.
     """
@@ -54,23 +58,25 @@ class TopDownMpiiDataset(TopDownBaseDataset):
                  img_prefix,
                  data_cfg,
                  pipeline,
+                 dataset_info=None,
                  test_mode=False):
+
+        if dataset_info is None:
+            warnings.warn(
+                'dataset_info is missing. '
+                'Check https://github.com/open-mmlab/mmpose/pull/663 '
+                'for details.', DeprecationWarning)
+            cfg = Config.fromfile('configs/_base_/datasets/mpii.py')
+            dataset_info = cfg._cfg_dict['dataset_info']
+
         super().__init__(
-            ann_file, img_prefix, data_cfg, pipeline, test_mode=test_mode)
-
-        self.ann_file = ann_file
-        self.ann_info['flip_pairs'] = [[0, 5], [1, 4], [2, 3], [10, 15],
-                                       [11, 14], [12, 13]]
-        self.ann_info['upper_body_ids'] = (7, 8, 9, 10, 11, 12, 13, 14, 15)
-        self.ann_info['lower_body_ids'] = (0, 1, 2, 3, 4, 5, 6)
-
-        self.ann_info['use_different_joint_weights'] = False
-
-        assert self.ann_info['num_joints'] == 16
-        self.ann_info['joint_weights'] = np.ones(
-            (self.ann_info['num_joints'], 1), dtype=np.float32)
-
-        self.dataset_name = 'mpii'
+            ann_file,
+            img_prefix,
+            data_cfg,
+            pipeline,
+            dataset_info=dataset_info,
+            coco_style=False,
+            test_mode=test_mode)
 
         self.db = self._get_db()
         self.image_set = set(x['image_file'] for x in self.db)
@@ -89,8 +95,8 @@ class TopDownMpiiDataset(TopDownBaseDataset):
         for a in anno:
             image_name = a['image']
 
-            center = np.array(a['center'], dtype=np.float)
-            scale = np.array([a['scale'], a['scale']], dtype=np.float)
+            center = np.array(a['center'], dtype=np.float32)
+            scale = np.array([a['scale'], a['scale']], dtype=np.float32)
 
             # Adjust center/scale slightly to avoid cropping limbs
             if center[0] != -1:
@@ -115,7 +121,7 @@ class TopDownMpiiDataset(TopDownBaseDataset):
 
                 joints_3d[:, 0:2] = joints[:, 0:2] - 1
                 joints_3d_visible[:, :2] = joints_vis[:, None]
-            image_file = os.path.join(self.img_prefix, image_name)
+            image_file = osp.join(self.img_prefix, image_name)
             gt_db.append({
                 'image_file': image_file,
                 'bbox_id': bbox_id,
@@ -132,29 +138,31 @@ class TopDownMpiiDataset(TopDownBaseDataset):
 
         return gt_db
 
-    def evaluate(self, outputs, res_folder, metric='PCKh', **kwargs):
+    @deprecated_api_warning(name_dict=dict(outputs='results'))
+    def evaluate(self, results, res_folder=None, metric='PCKh', **kwargs):
         """Evaluate PCKh for MPII dataset. Adapted from
         https://github.com/leoxiaobin/deep-high-resolution-net.pytorch
         Copyright (c) Microsoft, under the MIT License.
 
         Note:
-            batch_size: N
-            num_keypoints: K
-            heatmap height: H
-            heatmap width: W
+            - batch_size: N
+            - num_keypoints: K
+            - heatmap height: H
+            - heatmap width: W
 
         Args:
-            outputs(list(preds, boxes, image_path, heatmap)):
+            results (list[dict]): Testing results containing the following
+                items:
 
-                * preds (np.ndarray[N,K,3]): The first two dimensions are
-                  coordinates, score is the third dimension of the array.
-                * boxes (np.ndarray[N,6]): [center[0], center[1], scale[0]
-                  , scale[1],area, score]
-                * image_paths (list[str]): For example, ['/val2017/000000
-                  397133.jpg']
-                * heatmap (np.ndarray[N, K, H, W]): model output heatmap.
-
-            res_folder(str): Path of directory to save the results.
+                - preds (np.ndarray[N,K,3]): The first two dimensions are \
+                    coordinates, score is the third dimension of the array.
+                - boxes (np.ndarray[N,6]): [center[0], center[1], scale[0], \
+                    scale[1],area, score]
+                - image_paths (list[str]): For example, ['/val2017/000000\
+                    397133.jpg']
+                - heatmap (np.ndarray[N, K, H, W]): model output heatmap.
+            res_folder (str, optional): The folder to save the testing
+                results. Default: None.
             metric (str | list[str]): Metrics to be performed.
                 Defaults: 'PCKh'.
 
@@ -169,9 +177,9 @@ class TopDownMpiiDataset(TopDownBaseDataset):
                 raise KeyError(f'metric {metric} is not supported')
 
         kpts = []
-        for output in outputs:
-            preds = output['preds']
-            bbox_ids = output['bbox_ids']
+        for result in results:
+            preds = result['preds']
+            bbox_ids = result['bbox_ids']
             batch_size = len(bbox_ids)
             for i in range(batch_size):
                 kpts.append({'keypoints': preds[i], 'bbox_id': bbox_ids[i]})
@@ -184,14 +192,13 @@ class TopDownMpiiDataset(TopDownBaseDataset):
         preds = preds[..., :2] + 1.0
 
         if res_folder:
-            pred_file = os.path.join(res_folder, 'pred.mat')
+            pred_file = osp.join(res_folder, 'pred.mat')
             savemat(pred_file, mdict={'preds': preds})
 
         SC_BIAS = 0.6
         threshold = 0.5
 
-        gt_file = os.path.join(
-            os.path.dirname(self.ann_file), 'mpii_gt_val.mat')
+        gt_file = osp.join(osp.dirname(self.ann_file), 'mpii_gt_val.mat')
         gt_dict = loadmat(gt_file)
         dataset_joints = gt_dict['dataset_joints']
         jnt_missing = gt_dict['jnt_missing']

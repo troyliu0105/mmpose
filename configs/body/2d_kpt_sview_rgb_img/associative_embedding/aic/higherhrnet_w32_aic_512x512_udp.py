@@ -1,10 +1,9 @@
-log_level = 'INFO'
-load_from = None
-resume_from = None
-dist_params = dict(backend='nccl')
-workflow = [('train', 1)]
+_base_ = [
+    '../../../../_base_/default_runtime.py',
+    '../../../../_base_/datasets/aic.py'
+]
 checkpoint_config = dict(interval=50)
-evaluation = dict(interval=50, metric='mAP', key_indicator='AP')
+evaluation = dict(interval=50, metric='mAP', save_best='AP')
 
 optimizer = dict(
     type='Adam',
@@ -19,13 +18,6 @@ lr_config = dict(
     warmup_ratio=0.001,
     step=[200, 260])
 total_epochs = 300
-log_config = dict(
-    interval=50,
-    hooks=[
-        dict(type='TextLoggerHook'),
-        # dict(type='TensorboardLoggerHook')
-    ])
-
 channel_cfg = dict(
     num_output_channels=14,
     dataset_joints=14,
@@ -102,9 +94,7 @@ model = dict(
             pull_loss_factor=[0.001, 0.001],
             with_heatmaps_loss=[True, True],
             heatmaps_loss_factor=[1.0, 1.0])),
-    train_cfg=dict(
-        num_joints=channel_cfg['dataset_joints'],
-        img_size=data_cfg['image_size']),
+    train_cfg=dict(),
     test_cfg=dict(
         num_joints=channel_cfg['dataset_joints'],
         max_num_people=30,
@@ -177,27 +167,32 @@ test_pipeline = val_pipeline
 
 data_root = 'data/aic'
 data = dict(
-    samples_per_gpu=24,
     workers_per_gpu=2,
+    train_dataloader=dict(samples_per_gpu=24),
+    val_dataloader=dict(samples_per_gpu=1),
+    test_dataloader=dict(samples_per_gpu=1),
     train=dict(
         type='BottomUpAicDataset',
         ann_file=f'{data_root}/annotations/aic_train.json',
         img_prefix=f'{data_root}/ai_challenger_keypoint_train_20170902/'
         'keypoint_train_images_20170902/',
         data_cfg=data_cfg,
-        pipeline=train_pipeline),
+        pipeline=train_pipeline,
+        dataset_info={{_base_.dataset_info}}),
     val=dict(
         type='BottomUpAicDataset',
         ann_file=f'{data_root}/annotations/aic_val.json',
         img_prefix=f'{data_root}/ai_challenger_keypoint_validation_20170911/'
         'keypoint_validation_images_20170911/',
         data_cfg=data_cfg,
-        pipeline=val_pipeline),
+        pipeline=val_pipeline,
+        dataset_info={{_base_.dataset_info}}),
     test=dict(
         type='BottomUpAicDataset',
         ann_file=f'{data_root}/annotations/aic_val.json',
         img_prefix=f'{data_root}/ai_challenger_keypoint_validation_20170911/'
         'keypoint_validation_images_20170911/',
         data_cfg=data_cfg,
-        pipeline=val_pipeline),
+        pipeline=test_pipeline,
+        dataset_info={{_base_.dataset_info}}),
 )

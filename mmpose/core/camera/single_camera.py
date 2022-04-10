@@ -1,3 +1,4 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 import numpy as np
 
 from .camera_base import CAMERAS, SingleCameraBase
@@ -8,8 +9,8 @@ class SimpleCamera(SingleCameraBase):
     """Camera model to calculate coordinate transformation with given
     intrinsic/extrinsic camera parameters.
 
-    Notes:
-        The keypoint coordiante should be an np.ndarray with a shape of
+    Note:
+        The keypoint coordinate should be an np.ndarray with a shape of
     [...,J, C] where J is the keypoint number of an instance, and C is
     the coordinate dimension. For example:
 

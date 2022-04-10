@@ -1,3 +1,4 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 import copy as cp
 import os
 from abc import ABCMeta
@@ -37,7 +38,7 @@ class MeshBaseDataset(Dataset, metaclass=ABCMeta):
         self.image_info = {}
         self.ann_info = {}
 
-        self.annotations_path = ann_file
+        self.ann_file = ann_file
         self.img_prefix = img_prefix
         self.pipeline = pipeline
         self.test_mode = test_mode
@@ -113,10 +114,9 @@ class MeshBaseDataset(Dataset, metaclass=ABCMeta):
         # Get gender data, if available
         if 'gender' in data.keys():
             _genders = data['gender']
-            _genders = np.array([str(g) != 'm'
-                                 for g in _genders]).astype(np.int)
+            _genders = np.array([str(g) != 'm' for g in _genders]).astype(int)
         else:
-            _genders = -1 * np.ones(dataset_len).astype(np.int)
+            _genders = -1 * np.ones(dataset_len).astype(int)
 
         # Get IUV image, if available
         if 'iuv_names' in data.keys():

@@ -1,3 +1,4 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 import copy
 
 import numpy as np
@@ -22,7 +23,7 @@ class RegNet(ResNet):
             - wm (float): quantization parameter to quantize the width
             - depth (int): depth of the backbone
             - group_w (int): width of group
-            - bot_mul (float): bottleneck ratio, i.e. expansion of bottlneck.
+            - bot_mul (float): bottleneck ratio, i.e. expansion of bottleneck.
         strides (Sequence[int]): Strides of the first block of each stage.
         base_channels (int): Base channels after stem layer.
         in_channels (int): Number of input image channels. Default: 3.
@@ -53,7 +54,8 @@ class RegNet(ResNet):
                     wm=2.25,
                     group_w=48,
                     depth=25,
-                    bot_mul=1.0))
+                    bot_mul=1.0),
+                 out_indices=(0, 1, 2, 3))
         >>> self.eval()
         >>> inputs = torch.rand(1, 3, 32, 32)
         >>> level_outputs = self.forward(inputs)

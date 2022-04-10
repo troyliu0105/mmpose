@@ -1,11 +1,8 @@
-log_level = 'INFO'
-load_from = None
-resume_from = None
-dist_params = dict(backend='nccl')
-workflow = [('train', 1)]
-checkpoint_config = dict(interval=10)
-evaluation = dict(
-    interval=10, metric=['PCKh', 'AUC', 'EPE'], key_indicator='AUC')
+_base_ = [
+    '../../../../_base_/default_runtime.py',
+    '../../../../_base_/datasets/panoptic_hand2d.py'
+]
+evaluation = dict(interval=10, metric=['PCKh', 'AUC', 'EPE'], save_best='AUC')
 
 optimizer = dict(
     type='Adam',
@@ -114,17 +111,20 @@ data = dict(
         ann_file=f'{data_root}/annotations/panoptic_train.json',
         img_prefix=f'{data_root}/',
         data_cfg=data_cfg,
-        pipeline=train_pipeline),
+        pipeline=train_pipeline,
+        dataset_info={{_base_.dataset_info}}),
     val=dict(
         type='PanopticDataset',
         ann_file=f'{data_root}/annotations/panoptic_test.json',
         img_prefix=f'{data_root}/',
         data_cfg=data_cfg,
-        pipeline=val_pipeline),
+        pipeline=val_pipeline,
+        dataset_info={{_base_.dataset_info}}),
     test=dict(
         type='PanopticDataset',
         ann_file=f'{data_root}/annotations/panoptic_test.json',
         img_prefix=f'{data_root}/',
         data_cfg=data_cfg,
-        pipeline=val_pipeline),
+        pipeline=test_pipeline,
+        dataset_info={{_base_.dataset_info}}),
 )

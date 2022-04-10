@@ -1,9 +1,7 @@
-log_level = 'INFO'
-load_from = None
-resume_from = None
-dist_params = dict(backend='nccl')
-workflow = [('train', 1)]
-checkpoint_config = dict(interval=10)
+_base_ = [
+    '../../../../_base_/default_runtime.py',
+    '../../../../_base_/datasets/h36m.py'
+]
 evaluation = dict(interval=10, metric=['PCK', 'EPE'], key_indicator='PCK')
 
 optimizer = dict(
@@ -19,13 +17,6 @@ lr_config = dict(
     warmup_ratio=0.001,
     step=[170, 200])
 total_epochs = 210
-log_config = dict(
-    interval=50,
-    hooks=[
-        dict(type='TextLoggerHook'),
-        # dict(type='TensorboardLoggerHook')
-    ])
-
 channel_cfg = dict(
     num_output_channels=17,
     dataset_joints=17,
@@ -147,17 +138,20 @@ data = dict(
         ann_file=f'{data_root}/annotation_body2d/h36m_coco_train.json',
         img_prefix=f'{data_root}/images/',
         data_cfg=data_cfg,
-        pipeline=train_pipeline),
+        pipeline=train_pipeline,
+        dataset_info={{_base_.dataset_info}}),
     val=dict(
         type='TopDownH36MDataset',
         ann_file=f'{data_root}/annotation_body2d/h36m_coco_test.json',
         img_prefix=f'{data_root}/images/',
         data_cfg=data_cfg,
-        pipeline=val_pipeline),
+        pipeline=val_pipeline,
+        dataset_info={{_base_.dataset_info}}),
     test=dict(
         type='TopDownH36MDataset',
         ann_file=f'{data_root}/annotation_body2d/h36m_coco_test.json',
         img_prefix=f'{data_root}/images/',
         data_cfg=data_cfg,
-        pipeline=val_pipeline),
+        pipeline=test_pipeline,
+        dataset_info={{_base_.dataset_info}}),
 )

@@ -1,10 +1,8 @@
-log_level = 'INFO'
-load_from = None
-resume_from = None
-dist_params = dict(backend='nccl')
-workflow = [('train', 1)]
-checkpoint_config = dict(interval=10)
-evaluation = dict(interval=10, metric='PCK', key_indicator='PCK')
+_base_ = [
+    '../../../../_base_/default_runtime.py',
+    '../../../../_base_/datasets/deepfashion_upper.py'
+]
+evaluation = dict(interval=10, metric='PCK', save_best='PCK')
 
 optimizer = dict(
     type='Adam',
@@ -41,7 +39,7 @@ model = dict(
     backbone=dict(type='ResNet', depth=50, num_stages=4, out_indices=(3, )),
     neck=dict(type='GlobalAveragePooling'),
     keypoint_head=dict(
-        type='FcHead',
+        type='DeepposeRegressionHead',
         in_channels=2048,
         num_joints=channel_cfg['num_output_channels'],
         loss_keypoint=dict(type='SmoothL1Loss', use_target_weight=True)),
@@ -121,19 +119,22 @@ data = dict(
         img_prefix=f'{data_root}/img/',
         subset='upper',
         data_cfg=data_cfg,
-        pipeline=train_pipeline),
+        pipeline=train_pipeline,
+        dataset_info={{_base_.dataset_info}}),
     val=dict(
         type='DeepFashionDataset',
         ann_file=f'{data_root}/annotations/fld_upper_val.json',
         img_prefix=f'{data_root}/img/',
         subset='upper',
         data_cfg=data_cfg,
-        pipeline=val_pipeline),
+        pipeline=val_pipeline,
+        dataset_info={{_base_.dataset_info}}),
     test=dict(
         type='DeepFashionDataset',
         ann_file=f'{data_root}/annotations/fld_upper_test.json',
         img_prefix=f'{data_root}/img/',
         subset='upper',
         data_cfg=data_cfg,
-        pipeline=val_pipeline),
+        pipeline=test_pipeline,
+        dataset_info={{_base_.dataset_info}}),
 )

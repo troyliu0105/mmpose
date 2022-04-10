@@ -1,20 +1,24 @@
-import os
+# Copyright (c) OpenMMLab. All rights reserved.
+import os.path as osp
+import tempfile
+import warnings
 from collections import OrderedDict
 
 import json_tricks as json
 import numpy as np
+from mmcv import Config, deprecated_api_warning
 
 from mmpose.core.evaluation.top_down_eval import keypoint_epe
 from mmpose.datasets.builder import DATASETS
-from .hand_base_dataset import HandBaseDataset
+from ..base import Kpt3dSviewRgbImgTopDownDataset
 
 
 @DATASETS.register_module()
-class InterHand3DDataset(HandBaseDataset):
+class InterHand3DDataset(Kpt3dSviewRgbImgTopDownDataset):
     """InterHand2.6M 3D dataset for top-down hand pose estimation.
 
-    `InterHand2.6M: A Dataset and Baseline for 3D Interacting Hand Pose
-    Estimation from a Single RGB Image' Moon, Gyeongsik etal. ECCV'2020
+    "InterHand2.6M: A Dataset and Baseline for 3D Interacting Hand Pose
+    Estimation from a Single RGB Image", ECCV'2020.
     More details can be found in the `paper
     <https://arxiv.org/pdf/2008.09309.pdf>`__ .
 
@@ -68,6 +72,8 @@ class InterHand3DDataset(HandBaseDataset):
 
     Args:
         ann_file (str): Path to the annotation file.
+        camera_file (str): Path to the camera file.
+        joint_file (str): Path to the joint file.
         img_prefix (str): Path to a directory where images are held.
             Default: None.
         data_cfg (dict): config
@@ -75,6 +81,7 @@ class InterHand3DDataset(HandBaseDataset):
         use_gt_root_depth (bool): Using the ground truth depth of the wrist
             or given depth from rootnet_result_file.
         rootnet_result_file (str): Path to the wrist depth file.
+        dataset_info (DatasetInfo): A class containing all dataset info.
         test_mode (str): Store True when building test or
             validation dataset. Default: False.
     """
@@ -88,21 +95,31 @@ class InterHand3DDataset(HandBaseDataset):
                  pipeline,
                  use_gt_root_depth=True,
                  rootnet_result_file=None,
+                 dataset_info=None,
                  test_mode=False):
-        super().__init__(
-            ann_file, img_prefix, data_cfg, pipeline, test_mode=test_mode)
-        self.ann_info['flip_pairs'] = [[i, 21 + i] for i in range(21)]
 
-        self.ann_info['use_different_joint_weights'] = False
-        assert self.ann_info['num_joints'] == 42
-        self.ann_info['joint_weights'] = \
-            np.ones((self.ann_info['num_joints'], 1), dtype=np.float32)
+        if dataset_info is None:
+            warnings.warn(
+                'dataset_info is missing. '
+                'Check https://github.com/open-mmlab/mmpose/pull/663 '
+                'for details.', DeprecationWarning)
+            cfg = Config.fromfile('configs/_base_/datasets/interhand3d.py')
+            dataset_info = cfg._cfg_dict['dataset_info']
+
+        super().__init__(
+            ann_file,
+            img_prefix,
+            data_cfg,
+            pipeline,
+            dataset_info=dataset_info,
+            test_mode=test_mode)
+
         self.ann_info['heatmap3d_depth_bound'] = data_cfg[
             'heatmap3d_depth_bound']
         self.ann_info['heatmap_size_root'] = data_cfg['heatmap_size_root']
         self.ann_info['root_depth_bound'] = data_cfg['root_depth_bound']
+        self.ann_info['use_different_joint_weights'] = False
 
-        self.dataset_name = 'interhand3d'
         self.camera_file = camera_file
         self.joint_file = joint_file
 
@@ -115,75 +132,6 @@ class InterHand3DDataset(HandBaseDataset):
 
         print(f'=> num_images: {self.num_images}')
         print(f'=> load {len(self.db)} samples')
-
-    @staticmethod
-    def _cam2pixel(cam_coord, f, c):
-        """Transform the joints from their camera coordinates to their pixel
-        coordinates.
-
-        Note:
-            N: number of joints
-
-        Args:
-            cam_coord (ndarray[N, 3]): 3D joints coordinates
-                in the camera coordinate system
-            f (ndarray[2]): focal length of x and y axis
-            c (ndarray[2]): principal point of x and y axis
-
-        Returns:
-            img_coord (ndarray[N, 3]): the coordinates (x, y, 0)
-                in the image plane.
-        """
-        x = cam_coord[:, 0] / (cam_coord[:, 2] + 1e-8) * f[0] + c[0]
-        y = cam_coord[:, 1] / (cam_coord[:, 2] + 1e-8) * f[1] + c[1]
-        z = np.zeros_like(x)
-        img_coord = np.concatenate((x[:, None], y[:, None], z[:, None]), 1)
-        return img_coord
-
-    @staticmethod
-    def _world2cam(world_coord, R, T):
-        """Transform the joints from their world coordinates to their camera
-        coordinates.
-
-        Note:
-            N: number of joints
-
-        Args:
-            world_coord (ndarray[3, N]): 3D joints coordinates
-                in the world coordinate system
-            R (ndarray[3, 3]): camera rotation matrix
-            T (ndarray[3, 1]): camera position (x, y, z)
-
-        Returns:
-            cam_coord (ndarray[3, N]): 3D joints coordinates
-                in the camera coordinate system
-        """
-        cam_coord = np.dot(R, world_coord - T)
-        return cam_coord
-
-    @staticmethod
-    def _pixel2cam(pixel_coord, f, c):
-        """Transform the joints from their pixel coordinates to their camera
-        coordinates.
-
-        Note:
-            N: number of joints
-
-        Args:
-            pixel_coord (ndarray[N, 3]): 3D joints coordinates
-                in the pixel coordinate system
-            f (ndarray[2]): focal length of x and y axis
-            c (ndarray[2]): principal point of x and y axis
-
-        Returns:
-            cam_coord (ndarray[N, 3]): 3D joints coordinates
-                in the camera coordinate system
-        """
-        x = (pixel_coord[:, 0] - c[0]) / f[0] * pixel_coord[:, 2]
-        y = (pixel_coord[:, 1] - c[1]) / f[1] * pixel_coord[:, 2]
-        z = pixel_coord[:, 2]
-        cam_coord = np.concatenate((x[:, None], y[:, None], z[:, None]), 1)
-        return cam_coord
 
     @staticmethod
     def _encode_handtype(hand_type):
@@ -200,7 +148,7 @@ class InterHand3DDataset(HandBaseDataset):
         """Load dataset.
 
         Adapted from 'https://github.com/facebookresearch/InterHand2.6M/'
-                        'blob/master/data/InterHand2.6M/dataset.py'
+            'blob/master/data/InterHand2.6M/dataset.py'
         Copyright (c) FaceBook Research, under CC-BY-NC 4.0 license.
         """
         with open(self.camera_file, 'r') as f:
@@ -228,7 +176,7 @@ class InterHand3DDataset(HandBaseDataset):
             capture_id = str(img['capture'])
             camera_name = img['camera']
             frame_idx = str(img['frame_idx'])
-            image_file = os.path.join(self.img_prefix, self.id2name[img_id])
+            image_file = osp.join(self.img_prefix, self.id2name[img_id])
 
             camera_pos = np.array(
                 cameras[capture_id]['campos'][camera_name], dtype=np.float32)
@@ -304,31 +252,35 @@ class InterHand3DDataset(HandBaseDataset):
 
         return gt_db
 
-    def evaluate(self, outputs, res_folder, metric='MPJPE', **kwargs):
+    @deprecated_api_warning(name_dict=dict(outputs='results'))
+    def evaluate(self, results, res_folder=None, metric='MPJPE', **kwargs):
         """Evaluate interhand2d keypoint results. The pose prediction results
-        will be saved in `${res_folder}/result_keypoints.json`.
+        will be saved in ``${res_folder}/result_keypoints.json``.
 
         Note:
-            batch_size: N
-            num_keypoints: K
-            heatmap height: H
-            heatmap width: W
+            - batch_size: N
+            - num_keypoints: K
+            - heatmap height: H
+            - heatmap width: W
 
         Args:
-            outputs (list(dict))
-                :preds (np.ndarray[N,K,3]): The first two dimensions are
-                    coordinates, score is the third dimension of the array.
-                :hand_type (np.ndarray[N, 4]): The first two dimensions are
-                    hand type, scores is the last two dimensions.
-                :rel_root_depth (np.ndarray[N]): The relative depth of left
-                    wrist and right wrist.
-                :boxes (np.ndarray[N,6]): [center[0], center[1], scale[0]
-                    , scale[1],area, score]
-                :image_paths (list[str]): For example, ['Capture6/
-                    0012_aokay_upright/cam410061/image4996.jpg']
-                :output_heatmap (np.ndarray[N, K, H, W]): model outpus.
+            results (list[dict]): Testing results containing the following
+                items:
 
-            res_folder (str): Path of directory to save the results.
+                - preds (np.ndarray[N,K,3]): The first two dimensions are \
+                    coordinates, score is the third dimension of the array.
+                - hand_type (np.ndarray[N, 4]): The first two dimensions are \
+                    hand type, scores is the last two dimensions.
+                - rel_root_depth (np.ndarray[N]): The relative depth of left \
+                    wrist and right wrist.
+                - boxes (np.ndarray[N,6]): [center[0], center[1], scale[0], \
+                    scale[1],area, score]
+                - image_paths (list[str]): For example, ['Capture6/\
+                    0012_aokay_upright/cam410061/image4996.jpg']
+                - output_heatmap (np.ndarray[N, K, H, W]): model outputs.
+            res_folder (str, optional): The folder to save the testing
+                results. If not specified, a temp folder will be created.
+                Default: None.
             metric (str | list[str]): Metric to be performed.
                 Options: 'MRRPE', 'MPJPE', 'Handedness_acc'.
 
@@ -341,25 +293,30 @@ class InterHand3DDataset(HandBaseDataset):
             if metric not in allowed_metrics:
                 raise KeyError(f'metric {metric} is not supported')
 
-        res_file = os.path.join(res_folder, 'result_keypoints.json')
+        if res_folder is not None:
+            tmp_folder = None
+            res_file = osp.join(res_folder, 'result_keypoints.json')
+        else:
+            tmp_folder = tempfile.TemporaryDirectory()
+            res_file = osp.join(tmp_folder.name, 'result_keypoints.json')
 
         kpts = []
-        for output in outputs:
-            preds = output.get('preds')
+        for result in results:
+            preds = result.get('preds')
             if preds is None and 'MPJPE' in metrics:
                 raise KeyError('metric MPJPE is not supported')
 
-            hand_type = output.get('hand_type')
+            hand_type = result.get('hand_type')
             if hand_type is None and 'Handedness_acc' in metrics:
                 raise KeyError('metric Handedness_acc is not supported')
 
-            rel_root_depth = output.get('rel_root_depth')
+            rel_root_depth = result.get('rel_root_depth')
             if rel_root_depth is None and 'MRRPE' in metrics:
                 raise KeyError('metric MRRPE is not supported')
 
-            boxes = output['boxes']
-            image_paths = output['image_paths']
-            bbox_ids = output['bbox_ids']
+            boxes = result['boxes']
+            image_paths = result['image_paths']
+            bbox_ids = result['bbox_ids']
 
             batch_size = len(image_paths)
             for i in range(batch_size):
@@ -389,6 +346,9 @@ class InterHand3DDataset(HandBaseDataset):
         info_str = self._report_metric(res_file, metrics)
         name_value = OrderedDict(info_str)
 
+        if tmp_folder is not None:
+            tmp_folder.cleanup()
+
         return name_value
 
     @staticmethod
@@ -396,8 +356,8 @@ class InterHand3DDataset(HandBaseDataset):
         """Get accuracy of multi-label classification.
 
         Note:
-            batch_size: N
-            label_num: C
+            - batch_size: N
+            - label_num: C
 
         Args:
             outputs (np.array[N, C]): predicted multi-label.
@@ -406,7 +366,7 @@ class InterHand3DDataset(HandBaseDataset):
                 accuracy calculation.
 
         Returns:
-            accuracy (float)
+            float: mean accuracy
         """
         acc = (outputs == gts).all(axis=1)
         return np.mean(acc[masks])
@@ -420,7 +380,7 @@ class InterHand3DDataset(HandBaseDataset):
                 Options: 'MRRPE', 'MPJPE', 'Handedness_acc'.
 
         Returns:
-            List: Evaluation results for evaluation metric.
+            list: Evaluation results for evaluation metric.
         """
         info_str = []
 
@@ -509,7 +469,7 @@ class InterHand3DDataset(HandBaseDataset):
 
         gts_rel_root = np.array(gts_rel_root, dtype=np.float32)
         preds_rel_root = np.array(preds_rel_root, dtype=np.float32)
-        rel_root_masks = np.array(rel_root_masks, dtype=bool)
+        rel_root_masks = np.array(rel_root_masks, dtype=bool)[:, None]
         gts_joint_coord_cam = np.array(gts_joint_coord_cam, dtype=np.float32)
         preds_joint_coord_cam = np.array(
             preds_joint_coord_cam, dtype=np.float32)

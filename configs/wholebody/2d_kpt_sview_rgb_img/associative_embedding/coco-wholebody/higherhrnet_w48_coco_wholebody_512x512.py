@@ -1,8 +1,7 @@
-log_level = 'INFO'
-load_from = None
-resume_from = None
-dist_params = dict(backend='nccl')
-workflow = [('train', 1)]
+_base_ = [
+    '../../../../_base_/default_runtime.py',
+    '../../../../_base_/datasets/coco_wholebody.py'
+]
 checkpoint_config = dict(interval=50)
 evaluation = dict(interval=50, metric='mAP', key_indicator='AP')
 
@@ -19,13 +18,6 @@ lr_config = dict(
     warmup_ratio=0.001,
     step=[200, 260])
 total_epochs = 300
-log_config = dict(
-    interval=50,
-    hooks=[
-        dict(type='TextLoggerHook'),
-        # dict(type='TensorboardLoggerHook')
-    ])
-
 channel_cfg = dict(
     num_output_channels=133,
     dataset_joints=133,
@@ -113,6 +105,7 @@ model = dict(
         with_heatmaps=[True, True],
         with_ae=[True, False],
         project2image=True,
+        align_corners=False,
         nms_kernel=5,
         nms_padding=2,
         tag_per_joint=True,
@@ -174,24 +167,29 @@ test_pipeline = val_pipeline
 
 data_root = 'data/coco'
 data = dict(
-    samples_per_gpu=16,
     workers_per_gpu=2,
+    train_dataloader=dict(samples_per_gpu=16),
+    val_dataloader=dict(samples_per_gpu=1),
+    test_dataloader=dict(samples_per_gpu=1),
     train=dict(
         type='BottomUpCocoWholeBodyDataset',
         ann_file=f'{data_root}/annotations/coco_wholebody_train_v1.0.json',
         img_prefix=f'{data_root}/train2017/',
         data_cfg=data_cfg,
-        pipeline=train_pipeline),
+        pipeline=train_pipeline,
+        dataset_info={{_base_.dataset_info}}),
     val=dict(
         type='BottomUpCocoWholeBodyDataset',
         ann_file=f'{data_root}/annotations/coco_wholebody_val_v1.0.json',
         img_prefix=f'{data_root}/val2017/',
         data_cfg=data_cfg,
-        pipeline=val_pipeline),
+        pipeline=val_pipeline,
+        dataset_info={{_base_.dataset_info}}),
     test=dict(
         type='BottomUpCocoWholeBodyDataset',
         ann_file=f'{data_root}/annotations/coco_wholebody_val_v1.0.json',
         img_prefix=f'{data_root}/val2017/',
         data_cfg=data_cfg,
-        pipeline=val_pipeline),
+        pipeline=test_pipeline,
+        dataset_info={{_base_.dataset_info}}),
 )

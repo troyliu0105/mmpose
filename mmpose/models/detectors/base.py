@@ -1,3 +1,4 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
 
@@ -42,9 +43,9 @@ class BasePose(nn.Module, metaclass=ABCMeta):
                 losses and other necessary information.
 
         Returns:
-            tuple[Tensor, dict]: (loss, log_vars), loss is the loss tensor
-                which may be a weighted sum of all losses, log_vars contains
-                all the variables to be sent to the logger.
+            tuple[Tensor, dict]: (loss, log_vars), loss is the loss tensor \
+                which may be a weighted sum of all losses, log_vars \
+                contains all the variables to be sent to the logger.
         """
         log_vars = OrderedDict()
         for loss_name, loss_value in losses.items():

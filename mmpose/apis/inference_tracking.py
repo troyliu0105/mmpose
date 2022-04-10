@@ -1,3 +1,4 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 import warnings
 
 import numpy as np
@@ -35,19 +36,19 @@ def _compute_iou(bboxA, bboxB):
     return iou
 
 
-def _track_by_iou(res, results_last, thr):
+def _track_by_iou(res, results_last, thr, sigmas=None):
     """Get track id using IoU tracking greedily.
 
     Args:
         res (dict): The bbox & pose results of the person instance.
         results_last (list[dict]): The bbox & pose & track_id info of the
-                last frame (bbox_result, pose_result, track_id).
+            last frame (bbox_result, pose_result, track_id).
         thr (float): The threshold for iou tracking.
 
     Returns:
         int: The track id for the new person instance.
         list[dict]: The bbox & pose & track_id info of the persons
-                that have not been matched on the last frame.
+            that have not been matched on the last frame.
         dict: The matched person instance on the last frame.
     """
 
@@ -74,19 +75,19 @@ def _track_by_iou(res, results_last, thr):
     return track_id, results_last, match_result
 
 
-def _track_by_oks(res, results_last, thr):
+def _track_by_oks(res, results_last, thr, sigmas=None):
     """Get track id using OKS tracking greedily.
 
     Args:
         res (dict): The pose results of the person instance.
         results_last (list[dict]): The pose & track_id info of the
-                last frame (pose_result, track_id).
+            last frame (pose_result, track_id).
         thr (float): The threshold for oks tracking.
 
     Returns:
         int: The track id for the new person instance.
         list[dict]: The pose & track_id info of the persons
-                that have not been matched on the last frame.
+            that have not been matched on the last frame.
         dict: The matched person instance on the last frame.
     """
     pose = res['keypoints'].reshape((-1))
@@ -101,7 +102,7 @@ def _track_by_oks(res, results_last, thr):
         [res_last['keypoints'].reshape((-1)) for res_last in results_last])
     area_last = np.array([res_last['area'] for res_last in results_last])
 
-    oks_score = oks_iou(pose, pose_last, area, area_last)
+    oks_score = oks_iou(pose, pose_last, area, area_last, sigmas=sigmas)
 
     max_index = np.argmax(oks_score)
 
@@ -120,15 +121,15 @@ def _get_area(results):
 
     Args:
         results (list[dict]): The pose results of the current frame
-                (pose_result).
+            (pose_result).
     Returns:
         list[dict]: The bbox & pose info of the current frame
-                (bbox_result, pose_result, area).
+            (bbox_result, pose_result, area).
     """
     for result in results:
         if 'bbox' in result:
-            result['area'] = np.abs((result['bbox'][1] - result['bbox'][0]) *
-                                    (result['bbox'][2] - result['bbox'][3]))
+            result['area'] = ((result['bbox'][2] - result['bbox'][0]) *
+                              (result['bbox'][3] - result['bbox'][1]))
         else:
             xmin = np.min(
                 result['keypoints'][:, 0][result['keypoints'][:, 0] > 0],
@@ -151,7 +152,7 @@ def _temporal_refine(result, match_result, fps=None):
                 (pose_result).
         match_result (dict): The pose results of the last frame
                 (match_result)
-    return:
+    Returns:
         (array): The person keypoints after refine.
     """
     if 'one_euro' in match_result:
@@ -170,28 +171,43 @@ def get_track_id(results,
                  use_oks=False,
                  tracking_thr=0.3,
                  use_one_euro=False,
-                 fps=None):
+                 fps=None,
+                 sigmas=None):
     """Get track id for each person instance on the current frame.
 
     Args:
         results (list[dict]): The bbox & pose results of the current frame
-                (bbox_result, pose_result).
-        results_last (list[dict]): The bbox & pose & track_id info of the
-                last frame (bbox_result, pose_result, track_id).
+            (bbox_result, pose_result).
+        results_last (list[dict], optional): The bbox & pose & track_id info
+            of the last frame (bbox_result, pose_result, track_id). None is
+            equivalent to an empty result list. Default: None
         next_id (int): The track id for the new person instance.
         min_keypoints (int): Minimum number of keypoints recognized as person.
-                            default: 3.
+            default: 3.
         use_oks (bool): Flag to using oks tracking. default: False.
         tracking_thr (float): The threshold for tracking.
         use_one_euro (bool): Option to use one-euro-filter. default: False.
         fps (optional): Parameters that d_cutoff
-                        when one-euro-filter is used as a video input
+            when one-euro-filter is used as a video input
 
     Returns:
-        list[dict]: The bbox & pose & track_id info of the
-                current frame (bbox_result, pose_result, track_id).
-        int: The track id for the new person instance.
+        tuple:
+        - results (list[dict]): The bbox & pose & track_id info of the \
+            current frame (bbox_result, pose_result, track_id).
+        - next_id (int): The track id for the new person instance.
     """
+    if use_one_euro:
+        warnings.warn(
+            'In the future, get_track_id() will no longer perform '
+            'temporal refinement and the arguments `use_one_euro` and '
+            '`fps` will be deprecated. This part of function has been '
+            'migrated to Smoother (mmpose.core.Smoother). See '
+            'demo/top_down_pose_trackign_demo_with_mmdet.py for an '
+            'example.', DeprecationWarning)
+
+    if results_last is None:
+        results_last = []
+
     results = _get_area(results)
 
     if use_oks:
@@ -201,7 +217,7 @@ def get_track_id(results,
 
     for result in results:
         track_id, results_last, match_result = _track(result, results_last,
-                                                      tracking_thr)
+                                                      tracking_thr, sigmas=sigmas)
         if track_id == -1:
             if np.count_nonzero(result['keypoints'][:, 1]) > min_keypoints:
                 result['track_id'] = next_id
@@ -214,6 +230,7 @@ def get_track_id(results,
                 result['track_id'] = -1
         else:
             result['track_id'] = track_id
+
         if use_one_euro:
             result['keypoints'] = _temporal_refine(
                 result, match_result, fps=fps)
@@ -229,6 +246,7 @@ def vis_pose_tracking_result(model,
                              thickness=1,
                              kpt_score_thr=0.3,
                              dataset='TopDownCocoDataset',
+                             dataset_info=None,
                              show=False,
                              out_file=None):
     """Visualize the pose tracking results on the image.
@@ -237,87 +255,105 @@ def vis_pose_tracking_result(model,
         model (nn.Module): The loaded detector.
         img (str | np.ndarray): Image filename or loaded image.
         result (list[dict]): The results to draw over `img`
-                (bbox_result, pose_result).
+            (bbox_result, pose_result).
+        radius (int): Radius of circles.
+        thickness (int): Thickness of lines.
         kpt_score_thr (float): The threshold to visualize the keypoints.
-        skeleton (list[tuple()]): Default None.
+        skeleton (list[tuple]): Default None.
         show (bool):  Whether to show the image. Default True.
         out_file (str|None): The filename of the output visualization image.
     """
     if hasattr(model, 'module'):
         model = model.module
 
-    palette = np.array([[255, 128, 0], [255, 153, 51], [255, 178, 102],
-                        [230, 230, 0], [255, 153, 255], [153, 204, 255],
+    palette = np.array([[230, 230, 0], [255, 153, 255], [153, 204, 255],
+                        [255, 128, 0], [255, 153, 51], [255, 178, 102],
                         [255, 102, 255], [255, 51, 255], [102, 178, 255],
                         [51, 153, 255], [255, 153, 153], [255, 102, 102],
                         [255, 51, 51], [153, 255, 153], [102, 255, 102],
                         [51, 255, 51], [0, 255, 0], [0, 0, 255], [255, 0, 0],
                         [255, 255, 255]])
 
-    if dataset in ('TopDownCocoDataset', 'BottomUpCocoDataset',
-                   'TopDownOCHumanDataset'):
-        kpt_num = 17
-        skeleton = [[16, 14], [14, 12], [17, 15], [15, 13], [12, 13], [6, 12],
-                    [7, 13], [6, 7], [6, 8], [7, 9], [8, 10], [9, 11], [2, 3],
-                    [1, 2], [1, 3], [2, 4], [3, 5], [4, 6], [5, 7]]
+    if dataset_info is None and dataset is not None:
+        warnings.warn(
+            'dataset is deprecated.'
+            'Please set `dataset_info` in the config.'
+            'Check https://github.com/open-mmlab/mmpose/pull/663 for details.',
+            DeprecationWarning)
+        # TODO: These will be removed in the later versions.
+        if dataset in ('TopDownCocoDataset', 'BottomUpCocoDataset',
+                       'TopDownOCHumanDataset'):
+            kpt_num = 17
+            skeleton = [[15, 13], [13, 11], [16, 14], [14, 12], [11, 12],
+                        [5, 11], [6, 12], [5, 6], [5, 7], [6, 8], [7, 9],
+                        [8, 10], [1, 2], [0, 1], [0, 2], [1, 3], [2, 4],
+                        [3, 5], [4, 6]]
 
-    elif dataset == 'TopDownCocoWholeBodyDataset':
-        kpt_num = 133
-        skeleton = [[16, 14], [14, 12], [17, 15], [15, 13], [12, 13], [6, 12],
-                    [7, 13], [6, 7], [6, 8], [7, 9], [8, 10], [9, 11], [2, 3],
-                    [1, 2], [1, 3], [2, 4], [3, 5], [4, 6], [5, 7], [16, 18],
-                    [16, 19], [16, 20], [17, 21], [17, 22], [17, 23], [92, 93],
-                    [93, 94], [94, 95], [95, 96], [92, 97], [97, 98], [98, 99],
-                    [99, 100], [92, 101], [101, 102], [102, 103], [103, 104],
-                    [92, 105], [105, 106], [106, 107], [107, 108], [92, 109],
-                    [109, 110], [110, 111], [111, 112], [113, 114], [114, 115],
-                    [115, 116], [116, 117], [113, 118], [118, 119], [119, 120],
-                    [120, 121], [113, 122], [122, 123], [123, 124], [124, 125],
-                    [113, 126], [126, 127], [127, 128], [128, 129], [113, 130],
-                    [130, 131], [131, 132], [132, 133]]
+        elif dataset == 'TopDownCocoWholeBodyDataset':
+            kpt_num = 133
+            skeleton = [[15, 13], [13, 11], [16, 14], [14, 12], [11, 12],
+                        [5, 11], [6, 12], [5, 6], [5, 7], [6, 8], [7, 9],
+                        [8, 10], [1, 2], [0, 1], [0, 2],
+                        [1, 3], [2, 4], [3, 5], [4, 6], [15, 17], [15, 18],
+                        [15, 19], [16, 20], [16, 21], [16, 22], [91, 92],
+                        [92, 93], [93, 94], [94, 95], [91, 96], [96, 97],
+                        [97, 98], [98, 99], [91, 100], [100, 101], [101, 102],
+                        [102, 103], [91, 104], [104, 105], [105, 106],
+                        [106, 107], [91, 108], [108, 109], [109, 110],
+                        [110, 111], [112, 113], [113, 114], [114, 115],
+                        [115, 116], [112, 117], [117, 118], [118, 119],
+                        [119, 120], [112, 121], [121, 122], [122, 123],
+                        [123, 124], [112, 125], [125, 126], [126, 127],
+                        [127, 128], [112, 129], [129, 130], [130, 131],
+                        [131, 132]]
+            radius = 1
 
-    elif dataset == 'TopDownAicDataset':
-        kpt_num = 14
-        skeleton = [[3, 2], [2, 1], [1, 14], [14, 4], [4, 5], [5, 6], [9, 8],
-                    [8, 7], [7, 10], [10, 11], [11, 12], [13, 14], [1, 7],
-                    [4, 10]]
+        elif dataset == 'TopDownAicDataset':
+            kpt_num = 14
+            skeleton = [[2, 1], [1, 0], [0, 13], [13, 3], [3, 4], [4, 5],
+                        [8, 7], [7, 6], [6, 9], [9, 10], [10, 11], [12, 13],
+                        [0, 6], [3, 9]]
 
-    elif dataset == 'TopDownMpiiDataset':
-        kpt_num = 16
-        skeleton = [[1, 2], [2, 3], [3, 7], [7, 4], [4, 5], [5, 6], [7, 8],
-                    [8, 9], [9, 10], [9, 13], [13, 12], [12, 11], [9, 14],
-                    [14, 15], [15, 16]]
+        elif dataset == 'TopDownMpiiDataset':
+            kpt_num = 16
+            skeleton = [[0, 1], [1, 2], [2, 6], [6, 3], [3, 4], [4, 5], [6, 7],
+                        [7, 8], [8, 9], [8, 12], [12, 11], [11, 10], [8, 13],
+                        [13, 14], [14, 15]]
 
-    elif dataset in ('OneHand10KDataset', 'FreiHandDataset',
-                     'PanopticDataset'):
-        kpt_num = 21
-        skeleton = [[1, 2], [2, 3], [3, 4], [4, 5], [1, 6], [6, 7], [7, 8],
-                    [8, 9], [1, 10], [10, 11], [11, 12], [12, 13], [1, 14],
-                    [14, 15], [15, 16], [16, 17], [1, 18], [18, 19], [19, 20],
-                    [20, 21]]
+        elif dataset in ('OneHand10KDataset', 'FreiHandDataset',
+                         'PanopticDataset'):
+            kpt_num = 21
+            skeleton = [[0, 1], [1, 2], [2, 3], [3, 4], [0, 5], [5, 6], [6, 7],
+                        [7, 8], [0, 9], [9, 10], [10, 11], [11, 12], [0, 13],
+                        [13, 14], [14, 15], [15, 16], [0, 17], [17, 18],
+                        [18, 19], [19, 20]]
 
-    elif dataset == 'InterHand2DDataset':
-        kpt_num = 21
-        skeleton = [[1, 2], [2, 3], [3, 4], [5, 6], [6, 7], [7, 8], [9, 10],
-                    [10, 11], [11, 12], [13, 14], [14, 15], [15, 16], [17, 18],
-                    [18, 19], [19, 20], [4, 21], [8, 21], [12, 21], [16, 21],
-                    [20, 21]]
+        elif dataset == 'InterHand2DDataset':
+            kpt_num = 21
+            skeleton = [[0, 1], [1, 2], [2, 3], [4, 5], [5, 6], [6, 7], [8, 9],
+                        [9, 10], [10, 11], [12, 13], [13, 14], [14, 15],
+                        [16, 17], [17, 18], [18, 19], [3, 20], [7, 20],
+                        [11, 20], [15, 20], [19, 20]]
 
-    else:
-        raise NotImplementedError()
+        else:
+            raise NotImplementedError()
+
+    elif dataset_info is not None:
+        kpt_num = dataset_info.keypoint_num
+        skeleton = dataset_info.skeleton
 
     for res in result:
         track_id = res['track_id']
         bbox_color = palette[track_id % len(palette)]
         pose_kpt_color = palette[[track_id % len(palette)] * kpt_num]
-        pose_limb_color = palette[[track_id % len(palette)] * len(skeleton)]
+        pose_link_color = palette[[track_id % len(palette)] * len(skeleton)]
         img = model.show_result(
             img, [res],
             skeleton,
             radius=radius,
             thickness=thickness,
             pose_kpt_color=pose_kpt_color,
-            pose_limb_color=pose_limb_color,
+            pose_link_color=pose_link_color,
             bbox_color=tuple(bbox_color.tolist()),
             kpt_score_thr=kpt_score_thr,
             show=show,

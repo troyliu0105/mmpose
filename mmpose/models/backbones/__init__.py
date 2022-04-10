@@ -1,6 +1,10 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 from .alexnet import AlexNet
 from .cpm import CPM
 from .hourglass import HourglassNet
+from .hourglass_ae import HourglassAENet
+from .hrformer import HRFormer
+from .hourglass_lite import HourglassNetLite
 from .hrnet import HRNet
 from .litehrnet import LiteHRNet
 from .mobilenet_v2 import MobileNetV2
@@ -17,12 +21,17 @@ from .seresnext import SEResNeXt
 from .shufflenet_v1 import ShuffleNetV1
 from .shufflenet_v2 import ShuffleNetV2
 from .tcn import TCN
+from .v2v_net import V2VNet
 from .vgg import VGG
+from .repvgg import RepVGG
+from .vipnas_mbv3 import ViPNAS_MobileNetV3
 from .vipnas_resnet import ViPNAS_ResNet
 
 __all__ = [
-    'AlexNet', 'HourglassNet', 'HRNet', 'MobileNetV2', 'MobileNetV3', 'RegNet',
-    'ResNet', 'ResNetV1d', 'ResNeXt', 'SCNet', 'SEResNet', 'SEResNeXt',
-    'ShuffleNetV1', 'ShuffleNetV2', 'CPM', 'RSN', 'MSPN', 'ResNeSt', 'VGG',
-    'TCN', 'ViPNAS_ResNet', 'LiteHRNet'
+    'AlexNet', 'HourglassNet', 'HourglassAENet', 'HourglassNetLite', 'HRNet', 'MobileNetV2',
+    'MobileNetV3', 'RegNet', 'ResNet', 'ResNetV1d', 'ResNeXt', 'SCNet',
+    'SEResNet', 'SEResNeXt', 'ShuffleNetV1', 'ShuffleNetV2', 'CPM', 'RSN',
+    'RepVGG',
+    'MSPN', 'ResNeSt', 'VGG', 'TCN', 'ViPNAS_ResNet', 'ViPNAS_MobileNetV3',
+    'LiteHRNet', 'V2VNet', 'HRFormer'
 ]

@@ -1,8 +1,10 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 import warnings
 
 import mmcv
 import numpy as np
 from mmcv.image import imwrite
+from mmcv.utils.misc import deprecated_api_warning
 from mmcv.visualization.image import imshow
 
 from mmpose.core import imshow_bboxes, imshow_keypoints
@@ -69,7 +71,7 @@ class TopDown(BasePose):
 
     @property
     def with_neck(self):
-        """Check if has keypoint_head."""
+        """Check if has neck."""
         return hasattr(self, 'neck')
 
     @property
@@ -102,13 +104,13 @@ class TopDown(BasePose):
         the outer list indicating test time augmentations.
 
         Note:
-            batch_size: N
-            num_keypoints: K
-            num_img_channel: C (Default: 3)
-            img height: imgH
-            img width: imgW
-            heatmaps height: H
-            heatmaps weight: W
+            - batch_size: N
+            - num_keypoints: K
+            - num_img_channel: C (Default: 3)
+            - img height: imgH
+            - img width: imgW
+            - heatmaps height: H
+            - heatmaps weight: W
 
         Args:
             img (torch.Tensor[NxCximgHximgW]): Input images.
@@ -117,6 +119,7 @@ class TopDown(BasePose):
                 different joint types.
             img_metas (list(dict)): Information about data augmentation
                 By default this includes:
+
                 - "image_file: path to the image file
                 - "center": center of the bbox
                 - "scale": scale of the bbox
@@ -127,9 +130,9 @@ class TopDown(BasePose):
             return_heatmap (bool) : Option to return heatmap.
 
         Returns:
-            dict|tuple: if `return loss` is true, then return losses.
-              Otherwise, return predicted poses, boxes, image paths
-                  and heatmaps.
+            dict|tuple: if `return loss` is true, then return losses. \
+                Otherwise, return predicted poses, boxes, image paths \
+                and heatmaps.
         """
         if return_loss:
             return self.forward_train(img, target, target_weight, img_metas,
@@ -214,6 +217,8 @@ class TopDown(BasePose):
             output = self.keypoint_head(output)
         return output
 
+    @deprecated_api_warning({'pose_limb_color': 'pose_link_color'},
+                            cls_name='TopDown')
     def show_result(self,
                     img,
                     result,
@@ -221,7 +226,7 @@ class TopDown(BasePose):
                     kpt_score_thr=0.3,
                     bbox_color='green',
                     pose_kpt_color=None,
-                    pose_limb_color=None,
+                    pose_link_color=None,
                     text_color='white',
                     radius=4,
                     thickness=1,
@@ -239,13 +244,14 @@ class TopDown(BasePose):
             result (list[dict]): The results to draw over `img`
                 (bbox_result, pose_result).
             skeleton (list[list]): The connection of keypoints.
+                skeleton is 0-based indexing.
             kpt_score_thr (float, optional): Minimum score of keypoints
                 to be shown. Default: 0.3.
             bbox_color (str or tuple or :obj:`Color`): Color of bbox lines.
             pose_kpt_color (np.array[Nx3]`): Color of N keypoints.
                 If None, do not draw keypoints.
-            pose_limb_color (np.array[Mx3]): Color of M limbs.
-                If None, do not draw limbs.
+            pose_link_color (np.array[Mx3]): Color of M links.
+                If None, do not draw links.
             text_color (str or tuple or :obj:`Color`): Color of texts.
             radius (int): Radius of circles.
             thickness (int): Thickness of lines.
@@ -262,34 +268,34 @@ class TopDown(BasePose):
         Returns:
             Tensor: Visualized img, only if not `show` or `out_file`.
         """
-
         img = mmcv.imread(img)
         img = img.copy()
 
         bbox_result = []
+        bbox_labels = []
         pose_result = []
         for res in result:
-            bbox_result.append(res['bbox'])
+            if 'bbox' in res:
+                bbox_result.append(res['bbox'])
+                bbox_labels.append(res.get('label', None))
             pose_result.append(res['keypoints'])
 
-        if len(bbox_result) > 0:
+        if bbox_result:
             bboxes = np.vstack(bbox_result)
-            labels = None
-            if 'label' in result[0]:
-                labels = [res['label'] for res in result]
             # draw bounding boxes
             imshow_bboxes(
                 img,
                 bboxes,
-                labels=labels,
+                labels=bbox_labels,
                 colors=bbox_color,
                 text_color=text_color,
                 thickness=bbox_thickness,
                 font_scale=font_scale,
                 show=False)
 
+        if pose_result:
             imshow_keypoints(img, pose_result, skeleton, kpt_score_thr,
-                             pose_kpt_color, pose_limb_color, radius,
+                             pose_kpt_color, pose_link_color, radius,
                              thickness)
 
         if show:

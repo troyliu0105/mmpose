@@ -1,3 +1,4 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 import os
 import os.path as osp
 from argparse import ArgumentParser
@@ -58,7 +59,7 @@ def main():
         '--gt-joints-file',
         type=str,
         default=None,
-        help='Optional arguement. Ground truth 3D keypoint parameter file. '
+        help='Optional argument. Ground truth 3D keypoint parameter file. '
         'If None, gt keypoints will not be shown and keypoints in pixel '
         'space will be visualized.')
     parser.add_argument(

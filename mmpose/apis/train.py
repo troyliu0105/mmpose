@@ -1,8 +1,14 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 import warnings
 
+import mmcv
+import numpy as np
 import torch
+import torch.distributed as dist
 from mmcv.parallel import MMDataParallel, MMDistributedDataParallel
-from mmcv.runner import DistSamplerSeedHook, EpochBasedRunner, OptimizerHook
+from mmcv.runner import (DistSamplerSeedHook, EpochBasedRunner, OptimizerHook,
+                         get_dist_info)
+from mmcv.utils import digit_version
 
 from mmpose.core import DistEvalHook, EvalHook, build_optimizers
 from mmpose.core.distributed_wrapper import DistributedDataParallelWrapper
@@ -12,9 +18,43 @@ from mmpose.utils import get_root_logger
 try:
     from mmcv.runner import Fp16OptimizerHook
 except ImportError:
-    warnings.warn('Fp16OptimizerHook from mmpose will be deprecated from '
-                  'v0.15.0. Please install mmcv>=1.1.4')
+    warnings.warn(
+        'Fp16OptimizerHook from mmpose will be deprecated from '
+        'v0.15.0. Please install mmcv>=1.1.4', DeprecationWarning)
     from mmpose.core import Fp16OptimizerHook
+
+
+def init_random_seed(seed=None, device='cuda'):
+    """Initialize random seed.
+
+    If the seed is not set, the seed will be automatically randomized,
+    and then broadcast to all processes to prevent some potential bugs.
+
+    Args:
+        seed (int, Optional): The seed. Default to None.
+        device (str): The device where the seed will be put on.
+            Default to 'cuda'.
+
+    Returns:
+        int: Seed to be used.
+    """
+    if seed is not None:
+        return seed
+
+    # Make sure all ranks share the same random seed to prevent
+    # some potential bugs. Please refer to
+    # https://github.com/open-mmlab/mmdetection/issues/6339
+    rank, world_size = get_dist_info()
+    seed = np.random.randint(2**31)
+    if world_size == 1:
+        return seed
+
+    if rank == 0:
+        random_num = torch.tensor(seed, dtype=torch.int32, device=device)
+    else:
+        random_num = torch.tensor(0, dtype=torch.int32, device=device)
+    dist.broadcast(random_num, src=0)
+    return random_num.item()
 
 
 def train_model(model,
@@ -41,21 +81,35 @@ def train_model(model,
 
     # prepare data loaders
     dataset = dataset if isinstance(dataset, (list, tuple)) else [dataset]
-    dataloader_setting = dict(
-        samples_per_gpu=cfg.data.get('samples_per_gpu', {}),
-        workers_per_gpu=cfg.data.get('workers_per_gpu', {}),
-        # cfg.gpus will be ignored if distributed
-        num_gpus=len(cfg.gpu_ids),
-        dist=distributed,
-        seed=cfg.seed)
-    dataloader_setting = dict(dataloader_setting,
-                              **cfg.data.get('train_dataloader', {}))
+    # step 1: give default values and override (if exist) from cfg.data
+    loader_cfg = {
+        **dict(
+            seed=cfg.get('seed'),
+            drop_last=False,
+            dist=distributed,
+            num_gpus=len(cfg.gpu_ids)),
+        **({} if torch.__version__ != 'parrots' else dict(
+               prefetch_num=2,
+               pin_memory=False,
+           )),
+        **dict((k, cfg.data[k]) for k in [
+                   'samples_per_gpu',
+                   'workers_per_gpu',
+                   'shuffle',
+                   'seed',
+                   'drop_last',
+                   'prefetch_num',
+                   'pin_memory',
+                   'persistent_workers',
+               ] if k in cfg.data)
+    }
 
-    data_loaders = [
-        build_dataloader(ds, **dataloader_setting) for ds in dataset
-    ]
+    # step 2: cfg.data.train_dataloader has highest priority
+    train_loader_cfg = dict(loader_cfg, **cfg.data.get('train_dataloader', {}))
 
-    # determine wether use adversarial training precess or not
+    data_loaders = [build_dataloader(ds, **train_loader_cfg) for ds in dataset]
+
+    # determine whether use adversarial training precess or not
     use_adverserial_train = cfg.get('use_adversarial_train', False)
 
     # put model on gpus
@@ -78,8 +132,14 @@ def train_model(model,
                 broadcast_buffers=False,
                 find_unused_parameters=find_unused_parameters)
     else:
-        model = MMDataParallel(
-            model.cuda(cfg.gpu_ids[0]), device_ids=cfg.gpu_ids)
+        if digit_version(mmcv.__version__) >= digit_version(
+                '1.4.4') or torch.cuda.is_available():
+            model = MMDataParallel(model, device_ids=cfg.gpu_ids)
+        else:
+            warnings.warn(
+                'We recommend to use MMCV >= 1.4.4 for CPU training. '
+                'See https://github.com/open-mmlab/mmpose/pull/1157 for '
+                'details.')
 
     # build runner
     optimizer = build_optimizers(model, cfg.optimizer)
@@ -109,9 +169,14 @@ def train_model(model,
             optimizer_config = cfg.optimizer_config
 
     # register hooks
-    runner.register_training_hooks(cfg.lr_config, optimizer_config,
-                                   cfg.checkpoint_config, cfg.log_config,
-                                   cfg.get('momentum_config', None))
+    runner.register_training_hooks(
+        cfg.lr_config,
+        optimizer_config,
+        cfg.checkpoint_config,
+        cfg.log_config,
+        cfg.get('momentum_config', None),
+        custom_hooks_config=cfg.get('custom_hooks_config', None))
+
     if distributed:
         runner.register_hook(DistSamplerSeedHook())
 
@@ -121,7 +186,7 @@ def train_model(model,
         val_dataset = build_dataset(cfg.data.val, dict(test_mode=True))
         dataloader_setting = dict(
             samples_per_gpu=1,
-            workers_per_gpu=cfg.data.get('workers_per_gpu', {}),
+            workers_per_gpu=cfg.data.get('workers_per_gpu', 1),
             # cfg.gpus will be ignored if distributed
             num_gpus=len(cfg.gpu_ids),
             dist=distributed,

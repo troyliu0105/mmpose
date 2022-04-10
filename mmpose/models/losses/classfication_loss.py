@@ -1,3 +1,4 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -14,12 +15,12 @@ class BCELoss(nn.Module):
         self.use_target_weight = use_target_weight
         self.loss_weight = loss_weight
 
-    def forward(self, output, target, target_weight):
+    def forward(self, output, target, target_weight=None):
         """Forward function.
 
         Note:
-            batch_size: N
-            num_labels: K
+            - batch_size: N
+            - num_labels: K
 
         Args:
             output (torch.Tensor[N, K]): Output classification.
@@ -29,6 +30,7 @@ class BCELoss(nn.Module):
         """
 
         if self.use_target_weight:
+            assert target_weight is not None
             loss = self.criterion(output, target, reduction='none')
             if target_weight.dim() == 1:
                 target_weight = target_weight[:, None]

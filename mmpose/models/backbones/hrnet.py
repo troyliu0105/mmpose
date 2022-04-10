@@ -1,3 +1,4 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 import copy
 
 import torch.nn as nn
@@ -229,6 +230,8 @@ class HRNet(nn.Module):
             memory while slowing down the training speed.
         zero_init_residual (bool): whether to use zero init for last norm layer
             in resblocks to let them behave as identity.
+        frozen_stages (int): Stages to be frozen (stop grad and set eval mode).
+            -1 means not freezing any parameters. Default: -1.
 
     Example:
         >>> from mmpose.models import HRNet
@@ -265,9 +268,6 @@ class HRNet(nn.Module):
         >>> for level_out in level_outputs:
         ...     print(tuple(level_out.shape))
         (1, 32, 8, 8)
-        (1, 64, 4, 4)
-        (1, 128, 2, 2)
-        (1, 256, 1, 1)
     """
 
     blocks_dict = {'BASIC': BasicBlock, 'BOTTLENECK': Bottleneck}
@@ -279,7 +279,8 @@ class HRNet(nn.Module):
                  norm_cfg=dict(type='BN'),
                  norm_eval=False,
                  with_cp=False,
-                 zero_init_residual=False):
+                 zero_init_residual=False,
+                 frozen_stages=-1):
         # Protect mutable default arguments
         norm_cfg = copy.deepcopy(norm_cfg)
         super().__init__()
@@ -289,6 +290,7 @@ class HRNet(nn.Module):
         self.norm_eval = norm_eval
         self.with_cp = with_cp
         self.zero_init_residual = zero_init_residual
+        self.frozen_stages = frozen_stages
 
         # stem net
         self.norm1_name, norm1 = build_norm_layer(self.norm_cfg, 64, postfix=1)
@@ -376,6 +378,8 @@ class HRNet(nn.Module):
             self.stage4_cfg,
             num_channels,
             multiscale_output=self.stage4_cfg.get('multiscale_output', False))
+
+        self._freeze_stages()
 
     @property
     def norm1(self):
@@ -502,6 +506,32 @@ class HRNet(nn.Module):
 
         return nn.Sequential(*hr_modules), in_channels
 
+    def _freeze_stages(self):
+        """Freeze parameters."""
+        if self.frozen_stages >= 0:
+            self.norm1.eval()
+            self.norm2.eval()
+
+            for m in [self.conv1, self.norm1, self.conv2, self.norm2]:
+                for param in m.parameters():
+                    param.requires_grad = False
+
+        for i in range(1, self.frozen_stages + 1):
+            if i == 1:
+                m = getattr(self, 'layer1')
+            else:
+                m = getattr(self, f'stage{i}')
+
+            m.eval()
+            for param in m.parameters():
+                param.requires_grad = False
+
+            if i < 4:
+                m = getattr(self, f'transition{i}')
+                m.eval()
+                for param in m.parameters():
+                    param.requires_grad = False
+
     def init_weights(self, pretrained=None):
         """Initialize the weights in backbone.
 
@@ -567,6 +597,7 @@ class HRNet(nn.Module):
     def train(self, mode=True):
         """Convert the model into training mode."""
         super().train(mode)
+        self._freeze_stages()
         if mode and self.norm_eval:
             for m in self.modules():
                 if isinstance(m, _BatchNorm):

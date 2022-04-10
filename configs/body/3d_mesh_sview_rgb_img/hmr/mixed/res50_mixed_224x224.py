@@ -1,10 +1,4 @@
-log_level = 'INFO'
-load_from = None
-resume_from = None
-dist_params = dict(backend='nccl')
-workflow = [('train', 1)]
-checkpoint_config = dict(interval=10)
-
+_base_ = ['../../../../_base_/default_runtime.py']
 use_adversarial_train = True
 
 optimizer = dict(
@@ -16,13 +10,6 @@ optimizer_config = None
 lr_config = dict(policy='Fixed', by_epoch=False)
 
 total_epochs = 100
-log_config = dict(
-    interval=50,
-    hooks=[
-        dict(type='TextLoggerHook'),
-        # dict(type='TensorboardLoggerHook')
-    ])
-
 img_res = 224
 
 # model settings
@@ -37,6 +24,7 @@ model = dict(
     ),
     disc=dict(),
     smpl=dict(
+        type='SMPL',
         smpl_path='models/smpl',
         joints_regressor='models/smpl/joints_regressor_cmr.npy'),
     train_cfg=dict(disc_step=1),
@@ -143,7 +131,7 @@ data = dict(
                     ann_file='data/mesh_annotation_files/coco_2014_train.npz',
                     img_prefix='data/coco',
                     data_cfg=data_cfg,
-                    pipeline=train_pipeline),
+                    pipeline=train_pipeline)
             ],
             partition=[0.35, 0.15, 0.1, 0.10, 0.10, 0.2]),
         adversarial_dataset=dict(

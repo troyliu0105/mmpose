@@ -1,3 +1,4 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 import numpy as np
 import torch
 import torch.nn as nn
@@ -9,13 +10,12 @@ from ..utils.geometry import rot6d_to_rotmat
 
 @HEADS.register_module()
 class HMRMeshHead(nn.Module):
-    """SMPL parameters regressor head of simple baseline paper
-    ref: Angjoo Kanazawa. ``End-to-end Recovery of Human Shape and Pose''.
+    """SMPL parameters regressor head of simple baseline. "End-to-end Recovery
+    of Human Shape and Pose", CVPR'2018.
 
     Args:
         in_channels (int): Number of input channels
-        in_res (int): The resolution of input feature map.
-        smpl_mean_parameters (str): The file name of the mean SMPL parameters
+        smpl_mean_params (str): The file name of the mean SMPL parameters
         n_iter (int): The iterations of estimating delta parameters
     """
 

@@ -1,3 +1,4 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 import copy
 import os
 import os.path as osp
@@ -9,8 +10,9 @@ import numpy as np
 
 from mmpose.apis import (extract_pose_sequence, get_track_id,
                          inference_pose_lifter_model,
-                         inference_top_down_pose_model, vis_3d_pose_result)
-from mmpose.apis.inference import init_pose_model
+                         inference_top_down_pose_model, init_pose_model,
+                         process_mmdet_results, vis_3d_pose_result)
+from mmpose.core import Smoother
 
 try:
     from mmdet.apis import inference_detector, init_detector
@@ -20,33 +22,8 @@ except (ImportError, ModuleNotFoundError):
     has_mmdet = False
 
 
-def process_mmdet_results(mmdet_results, cat_id=1):
-    """Process mmdet results, and return a list of bboxes.
-
-    Args:
-        mmdet_results (list|tuple): mmdet results.
-        cat_id (int): category id (default: 1 for human)
-
-    Returns:
-        person_results (list): a list of detected bounding boxes
-    """
-    if isinstance(mmdet_results, tuple):
-        det_results = mmdet_results[0]
-    else:
-        det_results = mmdet_results
-
-    bboxes = det_results[cat_id - 1]
-
-    person_results = []
-    for bbox in bboxes:
-        person = {}
-        person['bbox'] = bbox
-        person_results.append(person)
-
-    return person_results
-
-
-def covert_keypoint_definition(keypoints, pose_det_dataset, pose_lift_dataset):
+def convert_keypoint_definition(keypoints, pose_det_dataset,
+                                pose_lift_dataset):
     """Convert pose det dataset keypoints definition to pose lifter dataset
     keypoints definition.
 
@@ -128,7 +105,7 @@ def main():
     parser.add_argument(
         '--out-video-root',
         type=str,
-        default=None,
+        default='vis_results',
         help='Root of the output video file. '
         'Default not saving the visualization video.')
     parser.add_argument(
@@ -149,10 +126,6 @@ def main():
     parser.add_argument(
         '--tracking-thr', type=float, default=0.3, help='Tracking threshold')
     parser.add_argument(
-        '--euro',
-        action='store_true',
-        help='Using One_Euro_Filter for smoothing')
-    parser.add_argument(
         '--radius',
         type=int,
         default=8,
@@ -162,6 +135,17 @@ def main():
         type=int,
         default=2,
         help='Link thickness for visualization')
+    parser.add_argument(
+        '--smooth',
+        action='store_true',
+        help='Apply a temporal filter to smooth the pose estimation results. '
+        'See also --smooth-filter-cfg.')
+    parser.add_argument(
+        '--smooth-filter-cfg',
+        type=str,
+        default='configs/_base_/filters/one_euro.py',
+        help='Config file of the filter to smooth the pose estimation '
+        'results. See also --smooth.')
 
     assert has_mmdet, 'Please install mmdet to run the demo.'
 
@@ -192,7 +176,7 @@ def main():
     pose_det_results_list = []
     next_id = 0
     pose_det_results = []
-    for frame in video:
+    for frame in mmcv.track_iter_progress(video):
         pose_det_results_last = pose_det_results
 
         # test a single image, the resulting box is (x1, y1, x2, y2)
@@ -219,9 +203,7 @@ def main():
             pose_det_results_last,
             next_id,
             use_oks=args.use_oks_tracking,
-            tracking_thr=args.tracking_thr,
-            use_one_euro=args.euro,
-            fps=video.fps)
+            tracking_thr=args.tracking_thr)
 
         pose_det_results_list.append(copy.deepcopy(pose_det_results))
 
@@ -253,7 +235,7 @@ def main():
     for pose_det_results in pose_det_results_list:
         for res in pose_det_results:
             keypoints = res['keypoints']
-            res['keypoints'] = covert_keypoint_definition(
+            res['keypoints'] = convert_keypoint_definition(
                 keypoints, pose_det_dataset, pose_lift_dataset)
 
     # load temporal padding config from model.data_cfg
@@ -261,6 +243,12 @@ def main():
         data_cfg = pose_lift_model.cfg.test_data_cfg
     else:
         data_cfg = pose_lift_model.cfg.data_cfg
+
+    # build pose smoother for temporal refinement
+    if args.smooth:
+        smoother = Smoother(filter_cfg=args.smooth_filter_cfg, keypoint_dim=3)
+    else:
+        smoother = None
 
     num_instances = args.num_instances
     for i, pose_det_results in enumerate(
@@ -303,6 +291,10 @@ def main():
             res['bbox'] = det_res['bbox']
             res['track_id'] = instance_id
             pose_lift_results_vis.append(res)
+
+        # Smoothing
+        if smoother:
+            pose_lift_results = smoother.smooth(pose_lift_results)
 
         # Visualization
         if num_instances < 0:

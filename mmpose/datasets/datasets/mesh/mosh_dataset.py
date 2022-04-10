@@ -1,3 +1,4 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 import copy as cp
 from abc import ABCMeta
 
@@ -24,7 +25,7 @@ class MoshDataset(Dataset, metaclass=ABCMeta):
 
     def __init__(self, ann_file, pipeline, test_mode=False):
 
-        self.annotations_path = ann_file
+        self.ann_file = ann_file
         self.pipeline = pipeline
         self.test_mode = test_mode
 

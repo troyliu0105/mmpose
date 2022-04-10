@@ -1,39 +1,21 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 import os
+import warnings
 from argparse import ArgumentParser
 
 import cv2
 
 from mmpose.apis import (get_track_id, inference_top_down_pose_model,
-                         init_pose_model, vis_pose_tracking_result)
+                         init_pose_model, process_mmdet_results,
+                         vis_pose_tracking_result)
+from mmpose.core import Smoother
+from mmpose.datasets import DatasetInfo
 
 try:
     from mmdet.apis import inference_detector, init_detector
     has_mmdet = True
 except (ImportError, ModuleNotFoundError):
     has_mmdet = False
-
-
-def process_mmdet_results(mmdet_results, cat_id=1):
-    """Process mmdet results, and return a list of bboxes.
-
-    :param mmdet_results:
-    :param cat_id: category id (default: 1 for human)
-    :return: a list of detected bounding boxes
-    """
-    if isinstance(mmdet_results, tuple):
-        det_results = mmdet_results[0]
-    else:
-        det_results = mmdet_results
-
-    bboxes = det_results[cat_id - 1]
-
-    person_results = []
-    for bbox in bboxes:
-        person = {}
-        person['bbox'] = bbox
-        person_results.append(person)
-
-    return person_results
 
 
 def main():
@@ -78,7 +60,19 @@ def main():
     parser.add_argument(
         '--euro',
         action='store_true',
-        help='Using One_Euro_Filter for smoothing')
+        help='(Deprecated, please use --smooth and --smooth-filter-cfg) '
+        'Using One_Euro_Filter for smoothing.')
+    parser.add_argument(
+        '--smooth',
+        action='store_true',
+        help='Apply a temporal filter to smooth the pose estimation results. '
+        'See also --smooth-filter-cfg.')
+    parser.add_argument(
+        '--smooth-filter-cfg',
+        type=str,
+        default='configs/_base_/filters/one_euro.py',
+        help='Config file of the filter to smooth the pose estimation '
+        'results. See also --smooth.')
     parser.add_argument(
         '--radius',
         type=int,
@@ -105,6 +99,14 @@ def main():
         args.pose_config, args.pose_checkpoint, device=args.device.lower())
 
     dataset = pose_model.cfg.data['test']['type']
+    dataset_info = pose_model.cfg.data['test'].get('dataset_info', None)
+    if dataset_info is None:
+        warnings.warn(
+            'Please set `dataset_info` in the config.'
+            'Check https://github.com/open-mmlab/mmpose/pull/663 for details.',
+            DeprecationWarning)
+    else:
+        dataset_info = DatasetInfo(dataset_info)
 
     cap = cv2.VideoCapture(args.video_path)
     fps = None
@@ -133,6 +135,20 @@ def main():
     # e.g. use ('backbone', ) to return backbone feature
     output_layer_names = None
 
+    # build pose smoother for temporal refinement
+    if args.euro:
+        warnings.warn(
+            'Argument --euro will be deprecated in the future. '
+            'Please use --smooth to enable temporal smoothing, and '
+            '--smooth-filter-cfg to set the filter config.',
+            DeprecationWarning)
+        smoother = Smoother(
+            filter_cfg='configs/_base_/filters/one_euro.py', keypoint_dim=2)
+    elif args.smooth:
+        smoother = Smoother(filter_cfg=args.smooth_filter_cfg, keypoint_dim=2)
+    else:
+        smoother = None
+
     next_id = 0
     pose_results = []
     while (cap.isOpened()):
@@ -155,6 +171,7 @@ def main():
             bbox_thr=args.bbox_thr,
             format='xyxy',
             dataset=dataset,
+            dataset_info=dataset_info,
             return_heatmap=return_heatmap,
             outputs=output_layer_names)
 
@@ -164,9 +181,11 @@ def main():
             pose_results_last,
             next_id,
             use_oks=args.use_oks_tracking,
-            tracking_thr=args.tracking_thr,
-            use_one_euro=args.euro,
-            fps=fps)
+            tracking_thr=args.tracking_thr)
+
+        # post-process the pose results with smoother
+        if smoother:
+            pose_results = smoother.smooth(pose_results)
 
         # show the results
         vis_img = vis_pose_tracking_result(
@@ -176,6 +195,7 @@ def main():
             radius=args.radius,
             thickness=args.thickness,
             dataset=dataset,
+            dataset_info=dataset_info,
             kpt_score_thr=args.kpt_thr,
             show=False)
 
@@ -185,13 +205,14 @@ def main():
         if save_out_video:
             videoWriter.write(vis_img)
 
-        if cv2.waitKey(1) & 0xFF == ord('q'):
+        if args.show and cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
     cap.release()
     if save_out_video:
         videoWriter.release()
-    cv2.destroyAllWindows()
+    if args.show:
+        cv2.destroyAllWindows()
 
 
 if __name__ == '__main__':

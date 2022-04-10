@@ -1,11 +1,8 @@
-log_level = 'INFO'
-load_from = None
-resume_from = None
-dist_params = dict(backend='nccl')
-workflow = [('train', 1)]
-checkpoint_config = dict(interval=10)
-evaluation = dict(
-    interval=10, metric=['mpjpe', 'p-mpjpe'], key_indicator='MPJPE')
+_base_ = [
+    '../../../../_base_/default_runtime.py',
+    '../../../../_base_/datasets/h36m.py'
+]
+evaluation = dict(interval=10, metric=['mpjpe', 'p-mpjpe'], save_best='MPJPE')
 
 # optimizer settings
 optimizer = dict(
@@ -22,13 +19,6 @@ lr_config = dict(
 )
 
 total_epochs = 200
-
-log_config = dict(
-    interval=50,
-    hooks=[
-        dict(type='TextLoggerHook'),
-        # dict(type='TensorboardLoggerHook')
-    ])
 
 channel_cfg = dict(
     num_output_channels=17,
@@ -171,17 +161,20 @@ data = dict(
         ann_file=f'{data_root}/annotation_body3d/fps50/h36m_train.npz',
         img_prefix=f'{data_root}/images/',
         data_cfg=data_cfg,
-        pipeline=train_pipeline),
+        pipeline=train_pipeline,
+        dataset_info={{_base_.dataset_info}}),
     val=dict(
         type='Body3DH36MDataset',
         ann_file=f'{data_root}/annotation_body3d/fps50/h36m_test.npz',
         img_prefix=f'{data_root}/images/',
         data_cfg=data_cfg,
-        pipeline=val_pipeline),
+        pipeline=val_pipeline,
+        dataset_info={{_base_.dataset_info}}),
     test=dict(
         type='Body3DH36MDataset',
         ann_file=f'{data_root}/annotation_body3d/fps50/h36m_test.npz',
         img_prefix=f'{data_root}/images/',
         data_cfg=data_cfg,
-        pipeline=test_pipeline),
+        pipeline=test_pipeline,
+        dataset_info={{_base_.dataset_info}}),
 )

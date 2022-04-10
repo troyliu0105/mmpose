@@ -1,22 +1,24 @@
-import os
+# Copyright (c) OpenMMLab. All rights reserved.
+import os.path as osp
+import tempfile
+import warnings
 from collections import OrderedDict
 
-import json_tricks as json
 import numpy as np
+from mmcv import Config, deprecated_api_warning
 
-from mmpose.core.evaluation.top_down_eval import keypoint_nme
 from mmpose.datasets.builder import DATASETS
-from .face_base_dataset import FaceBaseDataset
+from ..base import Kpt2dSviewRgbImgTopDownDataset
 
 
 @DATASETS.register_module()
-class FaceAFLWDataset(FaceBaseDataset):
+class FaceAFLWDataset(Kpt2dSviewRgbImgTopDownDataset):
     """Face AFLW dataset for top-down face keypoint localization.
 
-    `Annotated Facial Landmarks in the Wild: A Large-scale,
-    Real-world Database for Facial Landmark Localization.
+    "Annotated Facial Landmarks in the Wild: A Large-scale,
+    Real-world Database for Facial Landmark Localization".
     In Proc. First IEEE International Workshop on Benchmarking
-    Facial Image Analysis Technologies, 2011`
+    Facial Image Analysis Technologies, 2011.
 
     The dataset loads raw images and apply specified transforms
     to return a dict containing the image tensors and other information.
@@ -31,6 +33,7 @@ class FaceAFLWDataset(FaceBaseDataset):
             Default: None.
         data_cfg (dict): config
         pipeline (list[dict | callable]): A sequence of data transforms.
+        dataset_info (DatasetInfo): A class containing all dataset info.
         test_mode (bool): Store True when building test or
             validation dataset. Default: False.
     """
@@ -40,20 +43,26 @@ class FaceAFLWDataset(FaceBaseDataset):
                  img_prefix,
                  data_cfg,
                  pipeline,
+                 dataset_info=None,
                  test_mode=False):
 
+        if dataset_info is None:
+            warnings.warn(
+                'dataset_info is missing. '
+                'Check https://github.com/open-mmlab/mmpose/pull/663 '
+                'for details.', DeprecationWarning)
+            cfg = Config.fromfile('configs/_base_/datasets/aflw.py')
+            dataset_info = cfg._cfg_dict['dataset_info']
+
         super().__init__(
-            ann_file, img_prefix, data_cfg, pipeline, test_mode=test_mode)
+            ann_file,
+            img_prefix,
+            data_cfg,
+            pipeline,
+            dataset_info=dataset_info,
+            test_mode=test_mode)
 
         self.ann_info['use_different_joint_weights'] = False
-        assert self.ann_info['num_joints'] == 19
-        self.ann_info['joint_weights'] = \
-            np.ones((self.ann_info['num_joints'], 1), dtype=np.float32)
-
-        self.ann_info['flip_pairs'] = [[0, 5], [1, 4], [2, 3], [6, 11],
-                                       [7, 10], [8, 9], [12, 14], [15, 17]]
-
-        self.dataset_name = 'aflw'
         self.db = self._get_db()
 
         print(f'=> num_images: {self.num_images}')
@@ -88,8 +97,7 @@ class FaceAFLWDataset(FaceBaseDataset):
                 else:
                     center, scale = self._xywh2cs(*obj['bbox'][:4], 1.25)
 
-                image_file = os.path.join(self.img_prefix,
-                                          self.id2name[img_id])
+                image_file = osp.join(self.img_prefix, self.id2name[img_id])
 
                 gt_db.append({
                     'image_file': image_file,
@@ -109,79 +117,43 @@ class FaceAFLWDataset(FaceBaseDataset):
 
         return gt_db
 
-    def _get_normalize_factor(self, box_sizes):
+    def _get_normalize_factor(self, box_sizes, *args, **kwargs):
         """Get normalize factor for evaluation.
 
         Args:
             box_sizes (np.ndarray[N, 1]): box size
 
-        Return:
+        Returns:
             np.ndarray[N, 2]: normalized factor
         """
 
         return np.tile(box_sizes, [1, 2])
 
-    def _report_metric(self, res_file, metrics):
-        """Keypoint evaluation.
-
-        Args:
-            res_file (str): Json file stored prediction results.
-            metrics (str | list[str]): Metric to be performed.
-                Options: 'NME'.
-
-        Returns:
-            dict: Evaluation results for evaluation metric.
-        """
-        info_str = []
-
-        with open(res_file, 'r') as fin:
-            preds = json.load(fin)
-        assert len(preds) == len(self.db)
-
-        outputs = []
-        gts = []
-        masks = []
-        box_sizes = []
-
-        for pred, item in zip(preds, self.db):
-            outputs.append(np.array(pred['keypoints'])[:, :-1])
-            gts.append(np.array(item['joints_3d'])[:, :-1])
-            masks.append((np.array(item['joints_3d_visible'])[:, 0]) > 0)
-            box_sizes.append(item['box_size'])
-
-        outputs = np.array(outputs)
-        gts = np.array(gts)
-        masks = np.array(masks)
-        box_sizes = np.array(box_sizes).reshape([-1, 1])
-
-        if 'NME' in metrics:
-            normalize_factor = self._get_normalize_factor(box_sizes)
-            info_str.append(
-                ('NME', keypoint_nme(outputs, gts, masks, normalize_factor)))
-
-        return info_str
-
-    def evaluate(self, outputs, res_folder, metric='NME', **kwargs):
+    @deprecated_api_warning(name_dict=dict(outputs='results'))
+    def evaluate(self, results, res_folder=None, metric='NME', **kwargs):
         """Evaluate freihand keypoint results. The pose prediction results will
-        be saved in `${res_folder}/result_keypoints.json`.
+        be saved in ``${res_folder}/result_keypoints.json``.
 
         Note:
-            batch_size: N
-            num_keypoints: K
-            heatmap height: H
-            heatmap width: W
+            - batch_size: N
+            - num_keypoints: K
+            - heatmap height: H
+            - heatmap width: W
 
         Args:
-            outputs (list(preds, boxes, image_path, output_heatmap))
-                :preds (np.ndarray[1,K,3]): The first two dimensions are
+            results (list[dict]): Testing results containing the following
+                items:
+
+                - preds (np.ndarray[1,K,3]): The first two dimensions are \
                     coordinates, score is the third dimension of the array.
-                :boxes (np.ndarray[1,6]): [center[0], center[1], scale[0]
-                    , scale[1],area, score]
-                :image_path (list[str]): For example, ['3', '0', '0', 'W', '/',
-                    'i', 'b', 'u', 'g', '/', 'i', 'm', 'a', 'g', 'e', '_', '0',
-                    '1', '8', '.', 'j', 'p', 'g']
-                :output_heatmap (np.ndarray[N, K, H, W]): model outpus.
-            res_folder (str): Path of directory to save the results.
+                - boxes (np.ndarray[1,6]): [center[0], center[1], scale[0], \
+                    scale[1],area, score]
+                - image_path (list[str]): For example, ['aflw/images/flickr/ \
+                    0/image00002.jpg']
+                - output_heatmap (np.ndarray[N, K, H, W]): model outputs.
+            res_folder (str, optional): The folder to save the testing
+                results. If not specified, a temp folder will be created.
+                Default: None.
             metric (str | list[str]): Metric to be performed.
                 Options: 'NME'.
 
@@ -194,14 +166,19 @@ class FaceAFLWDataset(FaceBaseDataset):
             if metric not in allowed_metrics:
                 raise KeyError(f'metric {metric} is not supported')
 
-        res_file = os.path.join(res_folder, 'result_keypoints.json')
+        if res_folder is not None:
+            tmp_folder = None
+            res_file = osp.join(res_folder, 'result_keypoints.json')
+        else:
+            tmp_folder = tempfile.TemporaryDirectory()
+            res_file = osp.join(tmp_folder.name, 'result_keypoints.json')
 
         kpts = []
-        for output in outputs:
-            preds = output['preds']
-            boxes = output['boxes']
-            image_paths = output['image_paths']
-            bbox_ids = output['bbox_ids']
+        for result in results:
+            preds = result['preds']
+            boxes = result['boxes']
+            image_paths = result['image_paths']
+            bbox_ids = result['bbox_ids']
 
             batch_size = len(image_paths)
             for i in range(batch_size):
@@ -221,5 +198,8 @@ class FaceAFLWDataset(FaceBaseDataset):
         self._write_keypoint_results(kpts, res_file)
         info_str = self._report_metric(res_file, metrics)
         name_value = OrderedDict(info_str)
+
+        if tmp_folder is not None:
+            tmp_folder.cleanup()
 
         return name_value

@@ -1,18 +1,22 @@
-import os
+# Copyright (c) OpenMMLab. All rights reserved.
+import os.path as osp
+import tempfile
+import warnings
 from collections import OrderedDict
 
 import numpy as np
+from mmcv import Config, deprecated_api_warning
 
 from mmpose.datasets.builder import DATASETS
-from .hand_base_dataset import HandBaseDataset
+from ..base import Kpt2dSviewRgbImgTopDownDataset
 
 
 @DATASETS.register_module()
-class FreiHandDataset(HandBaseDataset):
+class FreiHandDataset(Kpt2dSviewRgbImgTopDownDataset):
     """FreiHand dataset for top-down hand pose estimation.
 
-    `FreiHAND: A Dataset for Markerless Capture of Hand Pose
-    and Shape from Single RGB Images' ICCV'2019
+    "FreiHAND: A Dataset for Markerless Capture of Hand Pose
+    and Shape from Single RGB Images", ICCV'2019.
     More details can be found in the `paper
     <https://arxiv.org/pdf/1909.04349.pdf>`__ .
 
@@ -49,6 +53,7 @@ class FreiHandDataset(HandBaseDataset):
             Default: None.
         data_cfg (dict): config
         pipeline (list[dict | callable]): A sequence of data transforms.
+        dataset_info (DatasetInfo): A class containing all dataset info.
         test_mode (bool): Store True when building test or
             validation dataset. Default: False.
     """
@@ -58,17 +63,26 @@ class FreiHandDataset(HandBaseDataset):
                  img_prefix,
                  data_cfg,
                  pipeline,
+                 dataset_info=None,
                  test_mode=False):
 
+        if dataset_info is None:
+            warnings.warn(
+                'dataset_info is missing. '
+                'Check https://github.com/open-mmlab/mmpose/pull/663 '
+                'for details.', DeprecationWarning)
+            cfg = Config.fromfile('configs/_base_/datasets/freihand2d.py')
+            dataset_info = cfg._cfg_dict['dataset_info']
+
         super().__init__(
-            ann_file, img_prefix, data_cfg, pipeline, test_mode=test_mode)
+            ann_file,
+            img_prefix,
+            data_cfg,
+            pipeline,
+            dataset_info=dataset_info,
+            test_mode=test_mode)
 
         self.ann_info['use_different_joint_weights'] = False
-        assert self.ann_info['num_joints'] == 21
-        self.ann_info['joint_weights'] = \
-            np.ones((self.ann_info['num_joints'], 1), dtype=np.float32)
-
-        self.dataset_name = 'freihand'
         self.db = self._get_db()
 
         print(f'=> num_images: {self.num_images}')
@@ -97,8 +111,7 @@ class FreiHandDataset(HandBaseDataset):
                 # the ori image is 224x224
                 center, scale = self._xywh2cs(0, 0, 224, 224, 0.8)
 
-                image_file = os.path.join(self.img_prefix,
-                                          self.id2name[img_id])
+                image_file = osp.join(self.img_prefix, self.id2name[img_id])
                 gt_db.append({
                     'image_file': image_file,
                     'center': center,
@@ -116,27 +129,31 @@ class FreiHandDataset(HandBaseDataset):
 
         return gt_db
 
-    def evaluate(self, outputs, res_folder, metric='PCK', **kwargs):
+    @deprecated_api_warning(name_dict=dict(outputs='results'))
+    def evaluate(self, results, res_folder=None, metric='PCK', **kwargs):
         """Evaluate freihand keypoint results. The pose prediction results will
-        be saved in `${res_folder}/result_keypoints.json`.
+        be saved in ``${res_folder}/result_keypoints.json``.
 
         Note:
-            batch_size: N
-            num_keypoints: K
-            heatmap height: H
-            heatmap width: W
+            - batch_size: N
+            - num_keypoints: K
+            - heatmap height: H
+            - heatmap width: W
 
         Args:
-            outputs (list(preds, boxes, image_path, output_heatmap))
-                :preds (np.ndarray[N,K,3]): The first two dimensions are
-                    coordinates, score is the third dimension of the array.
-                :boxes (np.ndarray[N,6]): [center[0], center[1], scale[0]
-                    , scale[1],area, score]
-                :image_paths (list[str]): For example, ['training/rgb/
-                    00031426.jpg']
-                :output_heatmap (np.ndarray[N, K, H, W]): model outpus.
+            results (list[dict]): Testing results containing the following
+                items:
 
-            res_folder (str): Path of directory to save the results.
+                - preds (np.ndarray[N,K,3]): The first two dimensions are \
+                    coordinates, score is the third dimension of the array.
+                - boxes (np.ndarray[N,6]): [center[0], center[1], scale[0], \
+                    scale[1],area, score]
+                - image_paths (list[str]): For example, ['training/rgb/\
+                    00031426.jpg']
+                - output_heatmap (np.ndarray[N, K, H, W]): model outputs.
+            res_folder (str, optional): The folder to save the testing
+                results. If not specified, a temp folder will be created.
+                Default: None.
             metric (str | list[str]): Metric to be performed.
                 Options: 'PCK', 'AUC', 'EPE'.
 
@@ -149,14 +166,19 @@ class FreiHandDataset(HandBaseDataset):
             if metric not in allowed_metrics:
                 raise KeyError(f'metric {metric} is not supported')
 
-        res_file = os.path.join(res_folder, 'result_keypoints.json')
+        if res_folder is not None:
+            tmp_folder = None
+            res_file = osp.join(res_folder, 'result_keypoints.json')
+        else:
+            tmp_folder = tempfile.TemporaryDirectory()
+            res_file = osp.join(tmp_folder.name, 'result_keypoints.json')
 
         kpts = []
-        for output in outputs:
-            preds = output['preds']
-            boxes = output['boxes']
-            image_paths = output['image_paths']
-            bbox_ids = output['bbox_ids']
+        for result in results:
+            preds = result['preds']
+            boxes = result['boxes']
+            image_paths = result['image_paths']
+            bbox_ids = result['bbox_ids']
 
             batch_size = len(image_paths)
             for i in range(batch_size):
@@ -176,5 +198,8 @@ class FreiHandDataset(HandBaseDataset):
         self._write_keypoint_results(kpts, res_file)
         info_str = self._report_metric(res_file, metrics)
         name_value = OrderedDict(info_str)
+
+        if tmp_folder is not None:
+            tmp_folder.cleanup()
 
         return name_value

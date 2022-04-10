@@ -1,10 +1,8 @@
-log_level = 'INFO'
-load_from = None
-resume_from = None
-dist_params = dict(backend='nccl')
-workflow = [('train', 1)]
-checkpoint_config = dict(interval=10)
-evaluation = dict(interval=10, metric='mAP', key_indicator='AP')
+_base_ = [
+    '../../../../_base_/default_runtime.py',
+    '../../../../_base_/datasets/animalpose.py'
+]
+evaluation = dict(interval=10, metric='mAP', save_best='AP')
 
 optimizer = dict(
     type='Adam',
@@ -155,17 +153,20 @@ data = dict(
         ann_file=f'{data_root}/annotations/animalpose_train.json',
         img_prefix=f'{data_root}/',
         data_cfg=data_cfg,
-        pipeline=train_pipeline),
+        pipeline=train_pipeline,
+        dataset_info={{_base_.dataset_info}}),
     val=dict(
         type='AnimalPoseDataset',
         ann_file=f'{data_root}/annotations/animalpose_val.json',
         img_prefix=f'{data_root}/',
         data_cfg=data_cfg,
-        pipeline=val_pipeline),
+        pipeline=val_pipeline,
+        dataset_info={{_base_.dataset_info}}),
     test=dict(
         type='AnimalPoseDataset',
         ann_file=f'{data_root}/annotations/animalpose_val.json',
         img_prefix=f'{data_root}/',
         data_cfg=data_cfg,
-        pipeline=val_pipeline),
+        pipeline=test_pipeline,
+        dataset_info={{_base_.dataset_info}}),
 )

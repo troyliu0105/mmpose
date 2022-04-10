@@ -1,3 +1,4 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 import torch
 import torch.nn as nn
 
@@ -9,9 +10,9 @@ def perspective_projection(points, rotation, translation, focal_length,
                            camera_center):
     """This function computes the perspective projection of a set of 3D points.
 
-    Notes:
-        batch size: B
-        point number: N
+    Note:
+        - batch size: B
+        - point number: N
 
     Args:
         points (Tensor([B, N, 3])): A set of 3D points
@@ -48,7 +49,7 @@ def perspective_projection(points, rotation, translation, focal_length,
 @LOSSES.register_module()
 class MeshLoss(nn.Module):
     """Mix loss for 3D human mesh. It is composed of loss on 2D joints, 3D
-    joints, mesh vertices and smpl paramters (if any).
+    joints, mesh vertices and smpl parameters (if any).
 
     Args:
         joints_2d_loss_weight (float): Weight for loss on 2D joints.
@@ -148,9 +149,9 @@ class MeshLoss(nn.Module):
         """Perform orthographic projection of 3D points using the camera
         parameters, return projected 2D points in image plane.
 
-        Notes:
-            batch size: B
-            point number: N
+        Note:
+            - batch size: B
+            - point number: N
 
         Args:
             points_3d (Tensor([B, N, 3])): 3D points.
@@ -158,7 +159,7 @@ class MeshLoss(nn.Module):
                 3 channel as (scale, translation_x, translation_y)
 
         Returns:
-            points_2d (Tensor([B, N, 2])): projected 2D points
+            Tensor([B, N, 2]): projected 2D points \
                 in image space.
         """
         batch_size = points_3d.shape[0]
@@ -193,7 +194,7 @@ class MeshLoss(nn.Module):
                 'has_smpl'
 
         Returns:
-            losses (dict): dict of losses.
+            dict: dict of losses.
         """
         losses = {}
 
@@ -205,7 +206,7 @@ class MeshLoss(nn.Module):
         loss_vertex = self.vertex_loss(pred_vertices, gt_vertices, has_smpl)
         losses['vertex_loss'] = loss_vertex * self.vertex_loss_weight
 
-        # Compute loss on SMPL parameters, if avaliable
+        # Compute loss on SMPL parameters, if available
         if 'pose' in output.keys() and 'beta' in output.keys():
             pred_rotmat = output['pose']
             pred_betas = output['beta']
@@ -303,8 +304,8 @@ class GANLoss(nn.Module):
             target_is_real (bool): Whether the target is real or fake.
 
         Returns:
-            (bool | Tensor): Target tensor. Return bool for wgan, otherwise,
-                return Tensor.
+            (bool | Tensor): Target tensor. Return bool for wgan, \
+                otherwise, return Tensor.
         """
 
         if self.gan_type == 'wgan':

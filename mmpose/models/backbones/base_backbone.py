@@ -1,3 +1,4 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 import logging
 from abc import ABCMeta, abstractmethod
 
@@ -37,6 +38,6 @@ class BaseBackbone(nn.Module, metaclass=ABCMeta):
         """Forward function.
 
         Args:
-            x (tensor | tuple[tensor]): x could be a Torch.tensor or a tuple of
-                Torch.tensor, containing input data for forward computation.
+            x (Tensor | tuple[Tensor]): x could be a torch.Tensor or a tuple of
+                torch.Tensor, containing input data for forward computation.
         """

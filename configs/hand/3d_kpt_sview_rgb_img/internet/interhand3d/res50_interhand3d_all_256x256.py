@@ -1,13 +1,12 @@
-log_level = 'INFO'
-load_from = None
-resume_from = None
-dist_params = dict(backend='nccl')
-workflow = [('train', 1)]
+_base_ = [
+    '../../../../_base_/default_runtime.py',
+    '../../../../_base_/datasets/interhand3d.py'
+]
 checkpoint_config = dict(interval=1)
 evaluation = dict(
     interval=1,
     metric=['MRRPE', 'MPJPE', 'Handedness_acc'],
-    key_indicator='MPJPE_all')
+    save_best='MPJPE_all')
 
 optimizer = dict(
     type='Adam',
@@ -149,7 +148,8 @@ data = dict(
         data_cfg=data_cfg,
         use_gt_root_depth=True,
         rootnet_result_file=None,
-        pipeline=train_pipeline),
+        pipeline=train_pipeline,
+        dataset_info={{_base_.dataset_info}}),
     val=dict(
         type='InterHand3DDataset',
         ann_file=f'{data_root}/annotations/machine_annot/'
@@ -162,7 +162,8 @@ data = dict(
         data_cfg=data_cfg,
         use_gt_root_depth=True,
         rootnet_result_file=None,
-        pipeline=val_pipeline),
+        pipeline=val_pipeline,
+        dataset_info={{_base_.dataset_info}}),
     test=dict(
         type='InterHand3DDataset',
         ann_file=f'{data_root}/annotations/all/'
@@ -175,5 +176,6 @@ data = dict(
         data_cfg=data_cfg,
         use_gt_root_depth=True,
         rootnet_result_file=None,
-        pipeline=val_pipeline),
+        pipeline=test_pipeline,
+        dataset_info={{_base_.dataset_info}}),
 )

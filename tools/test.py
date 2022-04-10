@@ -1,3 +1,4 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 import argparse
 import os
 import os.path as osp
@@ -13,6 +14,7 @@ from mmcv.runner import get_dist_info, init_dist, load_checkpoint
 from mmpose.apis import multi_gpu_test, single_gpu_test
 from mmpose.datasets import build_dataloader, build_dataset
 from mmpose.models import build_posenet
+from mmpose.utils import setup_multi_processes
 
 try:
     from mmcv.runner import wrap_fp16_model
@@ -28,10 +30,18 @@ def parse_args():
     parser.add_argument('checkpoint', help='checkpoint file')
     parser.add_argument('--out', help='output result file')
     parser.add_argument(
+        '--work-dir', help='the dir to save evaluation results')
+    parser.add_argument(
         '--fuse-conv-bn',
         action='store_true',
         help='Whether to fuse conv and bn, this will slightly increase'
         'the inference speed')
+    parser.add_argument(
+        '--gpu-id',
+        type=int,
+        default=0,
+        help='id of gpu to use '
+        '(only applicable to non-distributed testing)')
     parser.add_argument(
         '--eval',
         default=None,
@@ -39,7 +49,7 @@ def parse_args():
         help='evaluation metric, which depends on the dataset,'
         ' e.g., "mAP" for MSCOCO')
     parser.add_argument(
-        '--gpu_collect',
+        '--gpu-collect',
         action='store_true',
         help='whether to use gpu to collect results')
     parser.add_argument('--tmpdir', help='tmp dir for writing some results')
@@ -56,7 +66,9 @@ def parse_args():
         choices=['none', 'pytorch', 'slurm', 'mpi'],
         default='none',
         help='job launcher')
-    parser.add_argument('--local_rank', type=int, default=0)
+    parser.add_argument('--local-rank', type=int, default=0)
+    parser.add_argument(
+        '--local_rank', type=int, default=0, help='An alias to --local-rank')
     args = parser.parse_args()
     if 'LOCAL_RANK' not in os.environ:
         os.environ['LOCAL_RANK'] = str(args.local_rank)
@@ -82,15 +94,25 @@ def main():
     if args.cfg_options is not None:
         cfg.merge_from_dict(args.cfg_options)
 
+    # set multi-process settings
+    setup_multi_processes(cfg)
+
     # set cudnn_benchmark
     if cfg.get('cudnn_benchmark', False):
         torch.backends.cudnn.benchmark = True
     cfg.model.pretrained = None
     cfg.data.test.test_mode = True
 
-    args.work_dir = osp.join('./work_dirs',
-                             osp.splitext(osp.basename(args.config))[0])
-    mmcv.mkdir_or_exist(osp.abspath(args.work_dir))
+    # work_dir is determined in this priority: CLI > segment in file > filename
+    if args.work_dir is not None:
+        # update configs according to CLI args if args.work_dir is not None
+        cfg.work_dir = args.work_dir
+    elif cfg.get('work_dir', None) is None:
+        # use config filename as default work_dir if cfg.work_dir is None
+        cfg.work_dir = osp.join('./work_dirs',
+                                osp.splitext(osp.basename(args.config))[0])
+
+    mmcv.mkdir_or_exist(osp.abspath(cfg.work_dir))
 
     # init distributed env first, since logger depends on the dist info.
     if args.launcher == 'none':
@@ -101,15 +123,29 @@ def main():
 
     # build the dataloader
     dataset = build_dataset(cfg.data.test, dict(test_mode=True))
-    dataloader_setting = dict(
-        samples_per_gpu=1,
-        workers_per_gpu=cfg.data.get('workers_per_gpu', 1),
-        dist=distributed,
-        shuffle=False,
-        drop_last=False)
-    dataloader_setting = dict(dataloader_setting,
-                              **cfg.data.get('test_dataloader', {}))
-    data_loader = build_dataloader(dataset, **dataloader_setting)
+    # step 1: give default values and override (if exist) from cfg.data
+    loader_cfg = {
+        **dict(seed=cfg.get('seed'), drop_last=False, dist=distributed),
+        **({} if torch.__version__ != 'parrots' else dict(
+               prefetch_num=2,
+               pin_memory=False,
+           )),
+        **dict((k, cfg.data[k]) for k in [
+                   'seed',
+                   'prefetch_num',
+                   'pin_memory',
+                   'persistent_workers',
+               ] if k in cfg.data)
+    }
+    # step2: cfg.data.test_dataloader has higher priority
+    test_loader_cfg = {
+        **loader_cfg,
+        **dict(shuffle=False, drop_last=False),
+        **dict(workers_per_gpu=cfg.data.get('workers_per_gpu', 1)),
+        **dict(samples_per_gpu=cfg.data.get('samples_per_gpu', 1)),
+        **cfg.data.get('test_dataloader', {})
+    }
+    data_loader = build_dataloader(dataset, **test_loader_cfg)
 
     # build the model and load checkpoint
     model = build_posenet(cfg.model)
@@ -122,7 +158,7 @@ def main():
         model = fuse_conv_bn(model)
 
     if not distributed:
-        model = MMDataParallel(model, device_ids=[0])
+        model = MMDataParallel(model, device_ids=[args.gpu_id])
         outputs = single_gpu_test(model, data_loader)
     else:
         model = MMDistributedDataParallel(
@@ -141,7 +177,7 @@ def main():
             print(f'\nwriting results to {args.out}')
             mmcv.dump(outputs, args.out)
 
-        results = dataset.evaluate(outputs, args.work_dir, **eval_config)
+        results = dataset.evaluate(outputs, cfg.work_dir, **eval_config)
         for k, v in sorted(results.items()):
             print(f'{k}: {v}')
 

@@ -1,10 +1,9 @@
-log_level = 'INFO'
-load_from = None
-resume_from = None
-dist_params = dict(backend='nccl')
-workflow = [('train', 1)]
+_base_ = [
+    '../../../../_base_/default_runtime.py',
+    '../../../../_base_/datasets/cofw.py'
+]
 checkpoint_config = dict(interval=1)
-evaluation = dict(interval=1, metric=['NME'], key_indicator='NME')
+evaluation = dict(interval=1, metric=['NME'], save_best='NME')
 
 optimizer = dict(
     type='Adam',
@@ -142,17 +141,20 @@ data = dict(
         ann_file=f'{data_root}/annotations/cofw_train.json',
         img_prefix=f'{data_root}/images/',
         data_cfg=data_cfg,
-        pipeline=train_pipeline),
+        pipeline=train_pipeline,
+        dataset_info={{_base_.dataset_info}}),
     val=dict(
         type='FaceCOFWDataset',
         ann_file=f'{data_root}/annotations/cofw_test.json',
         img_prefix=f'{data_root}/images/',
         data_cfg=data_cfg,
-        pipeline=val_pipeline),
+        pipeline=val_pipeline,
+        dataset_info={{_base_.dataset_info}}),
     test=dict(
         type='FaceCOFWDataset',
         ann_file=f'{data_root}/annotations/cofw_test.json',
         img_prefix=f'{data_root}/images/',
         data_cfg=data_cfg,
-        pipeline=val_pipeline),
+        pipeline=test_pipeline,
+        dataset_info={{_base_.dataset_info}}),
 )

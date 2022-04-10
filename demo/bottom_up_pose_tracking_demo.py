@@ -1,10 +1,15 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 import os
+import warnings
 from argparse import ArgumentParser
 
 import cv2
 
 from mmpose.apis import (get_track_id, inference_bottom_up_pose_model,
                          init_pose_model, vis_pose_tracking_result)
+from mmpose.core import Smoother
+from mmpose.datasets import DatasetInfo
+from mmpose.apis.inference import process_dataset_info
 
 
 def main():
@@ -39,7 +44,19 @@ def main():
     parser.add_argument(
         '--euro',
         action='store_true',
-        help='Using One_Euro_Filter for smoothing')
+        help='(Deprecated, please use --smooth and --smooth-filter-cfg) '
+        'Using One_Euro_Filter for smoothing.')
+    parser.add_argument(
+        '--smooth',
+        action='store_true',
+        help='Apply a temporal filter to smooth the pose estimation results. '
+        'See also --smooth-filter-cfg.')
+    parser.add_argument(
+        '--smooth-filter-cfg',
+        type=str,
+        default='configs/_base_/filters/one_euro.py',
+        help='Config file of the filter to smooth the pose estimation '
+        'results. See also --smooth.')
     parser.add_argument(
         '--radius',
         type=int,
@@ -60,7 +77,17 @@ def main():
         args.pose_config, args.pose_checkpoint, device=args.device.lower())
 
     dataset = pose_model.cfg.data['test']['type']
-    assert (dataset == 'BottomUpCocoDataset')
+    dataset_info = pose_model.cfg.data['test'].get('dataset_info', None)
+    if dataset_info is None:
+        warnings.warn(
+            'Please set `dataset_info` in the config.'
+            'Check https://github.com/open-mmlab/mmpose/pull/663 for details.',
+            DeprecationWarning)
+        assert (dataset == 'BottomUpCocoDataset')
+    else:
+        dataset_info = DatasetInfo(dataset_info)
+    dataset_info = process_dataset_info(dataset_info, pose_model.cfg.channel_cfg.inference_channel)
+    pose_model.cfg.data['test']['dataset_info'] = dataset_info
 
     cap = cv2.VideoCapture(args.video_path)
     fps = None
@@ -86,6 +113,20 @@ def main():
     # optional
     return_heatmap = False
 
+    # build pose smoother for temporal refinement
+    if args.euro:
+        warnings.warn(
+            'Argument --euro will be deprecated in the future. '
+            'Please use --smooth to enable temporal smoothing, and '
+            '--smooth-filter-cfg to set the filter config.',
+            DeprecationWarning)
+        smoother = Smoother(
+            filter_cfg='configs/_base_/filters/one_euro.py', keypoint_dim=2)
+    elif args.smooth:
+        smoother = Smoother(filter_cfg=args.smooth_filter_cfg, keypoint_dim=2)
+    else:
+        smoother = None
+
     # e.g. use ('backbone', ) to return backbone feature
     output_layer_names = None
     next_id = 0
@@ -99,6 +140,8 @@ def main():
         pose_results, returned_outputs = inference_bottom_up_pose_model(
             pose_model,
             img,
+            dataset=dataset,
+            dataset_info=dataset_info,
             pose_nms_thr=args.pose_nms_thr,
             return_heatmap=return_heatmap,
             outputs=output_layer_names)
@@ -111,7 +154,12 @@ def main():
             use_oks=args.use_oks_tracking,
             tracking_thr=args.tracking_thr,
             use_one_euro=args.euro,
-            fps=fps)
+            fps=fps,
+            sigmas=dataset_info.sigmas)
+
+        # post-process the pose results with smoother
+        if smoother:
+            pose_results = smoother.smooth(pose_results)
 
         # show the results
         vis_img = vis_pose_tracking_result(
@@ -121,6 +169,7 @@ def main():
             radius=args.radius,
             thickness=args.thickness,
             dataset=dataset,
+            dataset_info=dataset_info,
             kpt_score_thr=args.kpt_thr,
             show=False)
 
@@ -130,13 +179,14 @@ def main():
         if save_out_video:
             videoWriter.write(vis_img)
 
-        if cv2.waitKey(1) & 0xFF == ord('q'):
+        if args.show and cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
     cap.release()
     if save_out_video:
         videoWriter.release()
-    cv2.destroyAllWindows()
+    if args.show:
+        cv2.destroyAllWindows()
 
 
 if __name__ == '__main__':

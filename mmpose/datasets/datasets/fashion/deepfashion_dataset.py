@@ -1,19 +1,23 @@
-import os
+# Copyright (c) OpenMMLab. All rights reserved.
+import os.path as osp
+import tempfile
+import warnings
 from collections import OrderedDict
 
 import numpy as np
+from mmcv import Config, deprecated_api_warning
 
 from mmpose.datasets.builder import DATASETS
-from .fashion_base_dataset import FashionBaseDataset
+from ..base import Kpt2dSviewRgbImgTopDownDataset
 
 
 @DATASETS.register_module()
-class DeepFashionDataset(FashionBaseDataset):
+class DeepFashionDataset(Kpt2dSviewRgbImgTopDownDataset):
     """DeepFashion dataset (full-body clothes) for fashion landmark detection.
 
-    `DeepFashion: Powering Robust Clothes Recognition
-    and Retrieval with Rich Annotations' CVPR'2016 and
-    `Fashion Landmark Detection in the Wild' ECCV'2016
+    "DeepFashion: Powering Robust Clothes Recognition
+    and Retrieval with Rich Annotations", CVPR'2016.
+    "Fashion Landmark Detection in the Wild", ECCV'2016.
 
     The dataset loads raw features and apply specified transforms
     to return a dict containing the image tensors and other information.
@@ -51,10 +55,9 @@ class DeepFashionDataset(FashionBaseDataset):
         ann_file (str): Path to the annotation file.
         img_prefix (str): Path to a directory where images are held.
             Default: None.
-        subset (str): The FLD dataset has 3 subsets, 'upper', 'lower',
-            and 'full', denoting different types of clothes.
         data_cfg (dict): config
         pipeline (list[dict | callable]): A sequence of data transforms.
+        dataset_info (DatasetInfo): A class containing all dataset info.
         test_mode (bool): Store True when building test or
             validation dataset. Default: False.
     """
@@ -62,34 +65,45 @@ class DeepFashionDataset(FashionBaseDataset):
     def __init__(self,
                  ann_file,
                  img_prefix,
-                 subset,
                  data_cfg,
                  pipeline,
+                 subset='',
+                 dataset_info=None,
                  test_mode=False):
 
-        super().__init__(
-            ann_file, img_prefix, data_cfg, pipeline, test_mode=test_mode)
+        if dataset_info is None:
+            warnings.warn(
+                'dataset_info is missing. '
+                'Check https://github.com/open-mmlab/mmpose/pull/663 '
+                'for details.', DeprecationWarning)
+            if subset != '':
+                warnings.warn(
+                    'subset is deprecated.'
+                    'Check https://github.com/open-mmlab/mmpose/pull/663 '
+                    'for details.', DeprecationWarning)
+            if subset == 'upper':
+                cfg = Config.fromfile(
+                    'configs/_base_/datasets/deepfashion_upper.py')
+                dataset_info = cfg._cfg_dict['dataset_info']
+            elif subset == 'lower':
+                cfg = Config.fromfile(
+                    'configs/_base_/datasets/deepfashion_lower.py')
+                dataset_info = cfg._cfg_dict['dataset_info']
+            elif subset == 'full':
+                cfg = Config.fromfile(
+                    'configs/_base_/datasets/deepfashion_full.py')
+                dataset_info = cfg._cfg_dict['dataset_info']
 
-        if subset == 'upper':
-            assert self.ann_info['num_joints'] == 6
-            self.ann_info['flip_pairs'] = [[0, 1], [2, 3], [4, 5]]
-            self.dataset_name = 'deepfashion_upper'
-        elif subset == 'lower':
-            assert self.ann_info['num_joints'] == 4
-            self.ann_info['flip_pairs'] = [[0, 1], [2, 3]]
-            self.dataset_name = 'deepfashion_lower'
-        elif subset == 'full':
-            assert self.ann_info['num_joints'] == 8
-            self.ann_info['flip_pairs'] = [[0, 1], [2, 3], [4, 5], [6, 7]]
-            self.dataset_name = 'deepfashion_full'
-        else:
-            NotImplementedError()
+        super().__init__(
+            ann_file,
+            img_prefix,
+            data_cfg,
+            pipeline,
+            dataset_info=dataset_info,
+            test_mode=test_mode)
 
         self.ann_info['use_different_joint_weights'] = False
-        self.ann_info['joint_weights'] = \
-            np.ones((self.ann_info['num_joints'], 1), dtype=np.float32)
 
-        self.dataset_name = 'deepfashion_' + subset
         self.db = self._get_db()
 
         print(f'=> num_images: {self.num_images}')
@@ -118,8 +132,7 @@ class DeepFashionDataset(FashionBaseDataset):
                 # use 1.25bbox as input
                 center, scale = self._xywh2cs(*obj['bbox'][:4], 1.25)
 
-                image_file = os.path.join(self.img_prefix,
-                                          self.id2name[img_id])
+                image_file = osp.join(self.img_prefix, self.id2name[img_id])
                 gt_db.append({
                     'image_file': image_file,
                     'center': center,
@@ -137,26 +150,30 @@ class DeepFashionDataset(FashionBaseDataset):
 
         return gt_db
 
-    def evaluate(self, outputs, res_folder, metric='PCK', **kwargs):
+    @deprecated_api_warning(name_dict=dict(outputs='results'))
+    def evaluate(self, results, res_folder=None, metric='PCK', **kwargs):
         """Evaluate freihand keypoint results. The pose prediction results will
-        be saved in `${res_folder}/result_keypoints.json`.
+        be saved in ``${res_folder}/result_keypoints.json``.
 
         Note:
-            batch_size: N
-            num_keypoints: K
-            heatmap height: H
-            heatmap width: W
+            - batch_size: N
+            - num_keypoints: K
+            - heatmap height: H
+            - heatmap width: W
 
         Args:
-            outputs (list(preds, boxes, image_path, output_heatmap))
-                :preds (np.ndarray[N,K,3]): The first two dimensions are
-                    coordinates, score is the third dimension of the array.
-                :boxes (np.ndarray[N,6]): [center[0], center[1], scale[0]
-                    , scale[1],area, score]
-                :image_paths (list[str]): For example, [ 'img_00000001.jpg']
-                :output_heatmap (np.ndarray[N, K, H, W]): model outpus.
+            results (list[dict]): Testing results containing the following
+                items:
 
-            res_folder (str): Path of directory to save the results.
+                - preds (np.ndarray[N,K,3]): The first two dimensions are \
+                    coordinates, score is the third dimension of the array.
+                - boxes (np.ndarray[N,6]): [center[0], center[1], scale[0], \
+                    scale[1],area, score]
+                - image_paths (list[str]): For example, ['img_00000001.jpg']
+                - output_heatmap (np.ndarray[N, K, H, W]): model outputs.
+            res_folder (str, optional): The folder to save the testing
+                results. If not specified, a temp folder will be created.
+                Default: None.
             metric (str | list[str]): Metric to be performed.
                 Options: 'PCK', 'AUC', 'EPE'.
 
@@ -169,14 +186,19 @@ class DeepFashionDataset(FashionBaseDataset):
             if metric not in allowed_metrics:
                 raise KeyError(f'metric {metric} is not supported')
 
-        res_file = os.path.join(res_folder, 'result_keypoints.json')
+        if res_folder is not None:
+            tmp_folder = None
+            res_file = osp.join(res_folder, 'result_keypoints.json')
+        else:
+            tmp_folder = tempfile.TemporaryDirectory()
+            res_file = osp.join(tmp_folder.name, 'result_keypoints.json')
 
         kpts = []
-        for output in outputs:
-            preds = output['preds']
-            boxes = output['boxes']
-            image_paths = output['image_paths']
-            bbox_ids = output['bbox_ids']
+        for result in results:
+            preds = result['preds']
+            boxes = result['boxes']
+            image_paths = result['image_paths']
+            bbox_ids = result['bbox_ids']
 
             batch_size = len(image_paths)
             for i in range(batch_size):
@@ -196,5 +218,8 @@ class DeepFashionDataset(FashionBaseDataset):
         self._write_keypoint_results(kpts, res_file)
         info_str = self._report_metric(res_file, metrics)
         name_value = OrderedDict(info_str)
+
+        if tmp_folder is not None:
+            tmp_folder.cleanup()
 
         return name_value

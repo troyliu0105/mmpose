@@ -1,3 +1,6 @@
+# Copyright (c) OpenMMLab. All rights reserved.
+from torch.utils.data.dataset import ConcatDataset as _ConcatDataset
+
 from .builder import DATASETS
 
 
@@ -28,3 +31,24 @@ class RepeatDataset:
     def __len__(self):
         """Length after repetition."""
         return self.times * self._ori_len
+
+
+@DATASETS.register_module()
+class ConcatDataset(_ConcatDataset):
+    """A wrapper of concatenated dataset.
+    Same as :obj:`torch.utils.data.dataset.ConcatDataset`, but
+    concat the group flag for image aspect ratio.
+    Args:
+        datasets (list[:obj:`Dataset`]): A list of datasets.
+        separate_eval (bool): Whether to evaluate the results
+            separately if it is used as validation dataset.
+            Defaults to True.
+    """
+
+    def __init__(self, datasets, separate_eval=True):
+        super(ConcatDataset, self).__init__(datasets)
+        self.separate_eval = separate_eval
+        if not separate_eval:
+            if len(set([type(ds) for ds in datasets])) != 1:
+                raise NotImplementedError(
+                    'All the datasets should have same types')

@@ -1,31 +1,39 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 import os
 import os.path as osp
+import tempfile
 import warnings
 from collections import OrderedDict, defaultdict
 
 import json_tricks as json
 import numpy as np
-from poseval import eval_helpers
-from poseval.evaluateAP import evaluateAP
-from xtcocotools.coco import COCO
+from mmcv import Config, deprecated_api_warning
 
 from ....core.post_processing import oks_nms, soft_oks_nms
 from ...builder import DATASETS
 from .topdown_coco_dataset import TopDownCocoDataset
+
+try:
+    from poseval import eval_helpers
+    from poseval.evaluateAP import evaluateAP
+    has_poseval = True
+except (ImportError, ModuleNotFoundError):
+    has_poseval = False
 
 
 @DATASETS.register_module()
 class TopDownPoseTrack18Dataset(TopDownCocoDataset):
     """PoseTrack18 dataset for top-down pose estimation.
 
-    `Posetrack: A benchmark for human pose estimation and tracking' CVPR'2018
+    "Posetrack: A benchmark for human pose estimation and tracking", CVPR'2018.
     More details can be found in the `paper
-    <https://arxiv.org/abs/1710.10000>`_ .
+    <https://arxiv.org/abs/1710.10000>`__ .
 
     The dataset loads raw features and apply specified transforms
     to return a dict containing the image tensors and other information.
 
     PoseTrack2018 keypoint indexes::
+
         0: 'nose',
         1: 'head_bottom',
         2: 'head_top',
@@ -50,6 +58,7 @@ class TopDownPoseTrack18Dataset(TopDownCocoDataset):
             Default: None.
         data_cfg (dict): config
         pipeline (list[dict | callable]): A sequence of data transforms.
+        dataset_info (DatasetInfo): A class containing all dataset info.
         test_mode (bool): Store True when building test or
             validation dataset. Default: False.
     """
@@ -59,84 +68,62 @@ class TopDownPoseTrack18Dataset(TopDownCocoDataset):
                  img_prefix,
                  data_cfg,
                  pipeline,
+                 dataset_info=None,
                  test_mode=False):
+
+        if dataset_info is None:
+            warnings.warn(
+                'dataset_info is missing. '
+                'Check https://github.com/open-mmlab/mmpose/pull/663 '
+                'for details.', DeprecationWarning)
+            cfg = Config.fromfile('configs/_base_/datasets/posetrack18.py')
+            dataset_info = cfg._cfg_dict['dataset_info']
+
         super(TopDownCocoDataset, self).__init__(
-            ann_file, img_prefix, data_cfg, pipeline, test_mode=test_mode)
+            ann_file,
+            img_prefix,
+            data_cfg,
+            pipeline,
+            dataset_info=dataset_info,
+            test_mode=test_mode)
 
         self.use_gt_bbox = data_cfg['use_gt_bbox']
         self.bbox_file = data_cfg['bbox_file']
         self.det_bbox_thr = data_cfg.get('det_bbox_thr', 0.0)
-        if 'image_thr' in data_cfg:
-            warnings.warn(
-                'image_thr is deprecated, '
-                'please use det_bbox_thr instead', DeprecationWarning)
-            self.det_bbox_thr = data_cfg['image_thr']
         self.use_nms = data_cfg.get('use_nms', True)
         self.soft_nms = data_cfg['soft_nms']
         self.nms_thr = data_cfg['nms_thr']
         self.oks_thr = data_cfg['oks_thr']
         self.vis_thr = data_cfg['vis_thr']
 
-        self.ann_info['flip_pairs'] = [[3, 4], [5, 6], [7, 8], [9, 10],
-                                       [11, 12], [13, 14], [15, 16]]
-
-        self.ann_info['upper_body_ids'] = (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
-        self.ann_info['lower_body_ids'] = (11, 12, 13, 14, 15, 16)
-
-        self.ann_info['use_different_joint_weights'] = False
-        self.ann_info['joint_weights'] = np.array(
-            [
-                1., 1., 1., 1., 1., 1., 1., 1.2, 1.2, 1.5, 1.5, 1., 1., 1.2,
-                1.2, 1.5, 1.5
-            ],
-            dtype=np.float32).reshape((self.ann_info['num_joints'], 1))
-
-        # Adapted from COCO dataset
-        self.sigmas = np.array([
-            .26, .25, .25, .35, .35, .79, .79, .72, .72, .62, .62, 1.07, 1.07,
-            .87, .87, .89, .89
-        ]) / 10.0
-
-        self.coco = COCO(ann_file)
-
-        cats = [
-            cat['name'] for cat in self.coco.loadCats(self.coco.getCatIds())
-        ]
-        self.classes = ['__background__'] + cats
-        self.num_classes = len(self.classes)
-        self._class_to_ind = dict(zip(self.classes, range(self.num_classes)))
-        self._class_to_coco_ind = dict(zip(cats, self.coco.getCatIds()))
-        self._coco_ind_to_class_ind = dict(
-            (self._class_to_coco_ind[cls], self._class_to_ind[cls])
-            for cls in self.classes[1:])
-        self.img_ids = self.coco.getImgIds()
-        self.num_images = len(self.img_ids)
-        self.id2name, self.name2id = self._get_mapping_id_name(self.coco.imgs)
-        self.dataset_name = 'posetrack18'
-
         self.db = self._get_db()
 
         print(f'=> num_images: {self.num_images}')
         print(f'=> load {len(self.db)} samples')
 
-    def evaluate(self, outputs, res_folder, metric='mAP', **kwargs):
-        """Evaluate coco keypoint results. The pose prediction results will be
-        saved in `${res_folder}/result_keypoints.json`.
+    @deprecated_api_warning(name_dict=dict(outputs='results'))
+    def evaluate(self, results, res_folder=None, metric='mAP', **kwargs):
+        """Evaluate posetrack keypoint results. The pose prediction results
+        will be saved in ``${res_folder}/result_keypoints.json``.
 
         Note:
-            num_keypoints: K
+            - num_keypoints: K
 
         Args:
-            outputs (list(preds, boxes, image_paths))
-                :preds (np.ndarray[N,K,3]): The first two dimensions are
+            results (list[dict]): Testing results containing the following
+                items:
+
+                - preds (np.ndarray[N,K,3]): The first two dimensions are \
                     coordinates, score is the third dimension of the array.
-                :boxes (np.ndarray[N,6]): [center[0], center[1], scale[0]
-                    , scale[1],area, score]
-                :image_paths (list[str]): For example, ['val/010016_mpii_test
+                - boxes (np.ndarray[N,6]): [center[0], center[1], scale[0], \
+                    scale[1],area, score]
+                - image_paths (list[str]): For example, ['val/010016_mpii_test\
                     /000024.jpg']
-                :heatmap (np.ndarray[N, K, H, W]): model output heatmap.
-                :bbox_id (list(int))
-            res_folder (str): Path of directory to save the results.
+                - heatmap (np.ndarray[N, K, H, W]): model output heatmap.
+                - bbox_id (list(int))
+            res_folder (str, optional): The folder to save the testing
+                results. If not specified, a temp folder will be created.
+                Default: None.
             metric (str | list[str]): Metric to be performed. Defaults: 'mAP'.
 
         Returns:
@@ -148,19 +135,23 @@ class TopDownPoseTrack18Dataset(TopDownCocoDataset):
             if metric not in allowed_metrics:
                 raise KeyError(f'metric {metric} is not supported')
 
-        pred_folder = osp.join(res_folder, 'preds')
-        os.makedirs(pred_folder, exist_ok=True)
+        if res_folder is not None:
+            tmp_folder = None
+        else:
+            tmp_folder = tempfile.TemporaryDirectory()
+            res_folder = tmp_folder.name
+
         gt_folder = osp.join(
-            osp.dirname(self.annotations_path),
-            osp.splitext(self.annotations_path.split('_')[-1])[0])
+            osp.dirname(self.ann_file),
+            osp.splitext(self.ann_file.split('_')[-1])[0])
 
         kpts = defaultdict(list)
 
-        for output in outputs:
-            preds = output['preds']
-            boxes = output['boxes']
-            image_paths = output['image_paths']
-            bbox_ids = output['bbox_ids']
+        for result in results:
+            preds = result['preds']
+            boxes = result['boxes']
+            image_paths = result['image_paths']
+            bbox_ids = result['bbox_ids']
 
             batch_size = len(image_paths)
             for i in range(batch_size):
@@ -206,10 +197,13 @@ class TopDownPoseTrack18Dataset(TopDownCocoDataset):
                 valid_kpts[image_id].append(img_kpts)
 
         self._write_posetrack18_keypoint_results(valid_kpts, gt_folder,
-                                                 pred_folder)
+                                                 res_folder)
 
-        info_str = self._do_python_keypoint_eval(gt_folder, pred_folder)
+        info_str = self._do_python_keypoint_eval(gt_folder, res_folder)
         name_value = OrderedDict(info_str)
+
+        if tmp_folder is not None:
+            tmp_folder.cleanup()
 
         return name_value
 
@@ -283,6 +277,11 @@ class TopDownPoseTrack18Dataset(TopDownCocoDataset):
 
     def _do_python_keypoint_eval(self, gt_folder, pred_folder):
         """Keypoint evaluation using poseval."""
+
+        if not has_poseval:
+            raise ImportError('Please install poseval package for evaluation'
+                              'on PoseTrack dataset '
+                              '(see requirements/optional.txt)')
 
         argv = ['', gt_folder + '/', pred_folder + '/']
 

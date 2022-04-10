@@ -1,10 +1,14 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 import os
+import warnings
 from argparse import ArgumentParser
 
 import cv2
 
 from mmpose.apis import (inference_top_down_pose_model, init_pose_model,
                          vis_pose_tracking_result)
+from mmpose.core import Smoother
+from mmpose.datasets import DatasetInfo
 
 try:
     from mmtrack.apis import inference_mot
@@ -21,7 +25,14 @@ def process_mmtracking_results(mmtracking_results):
     :return: a list of tracked bounding boxes
     """
     person_results = []
-    for track in mmtracking_results['track_results'][0]:
+    # 'track_results' is changed to 'track_bboxes'
+    # in https://github.com/open-mmlab/mmtracking/pull/300
+    if 'track_bboxes' in mmtracking_results:
+        tracking_results = mmtracking_results['track_bboxes'][0]
+    elif 'track_results' in mmtracking_results:
+        tracking_results = mmtracking_results['track_results'][0]
+
+    for track in tracking_results:
         person = {}
         person['track_id'] = int(track[0])
         person['bbox'] = track[1:]
@@ -68,6 +79,17 @@ def main():
         type=int,
         default=1,
         help='Link thickness for visualization')
+    parser.add_argument(
+        '--smooth',
+        action='store_true',
+        help='Apply a temporal filter to smooth the pose estimation results. '
+        'See also --smooth-filter-cfg.')
+    parser.add_argument(
+        '--smooth-filter-cfg',
+        type=str,
+        default='configs/_base_/filters/one_euro.py',
+        help='Config file of the filter to smooth the pose estimation '
+        'results. See also --smooth.')
 
     assert has_mmtrack, 'Please install mmtrack to run the demo.'
 
@@ -83,6 +105,14 @@ def main():
         args.pose_config, args.pose_checkpoint, device=args.device.lower())
 
     dataset = pose_model.cfg.data['test']['type']
+    dataset_info = pose_model.cfg.data['test'].get('dataset_info', None)
+    if dataset_info is None:
+        warnings.warn(
+            'Please set `dataset_info` in the config.'
+            'Check https://github.com/open-mmlab/mmpose/pull/663 for details.',
+            DeprecationWarning)
+    else:
+        dataset_info = DatasetInfo(dataset_info)
 
     cap = cv2.VideoCapture(args.video_path)
     assert cap.isOpened(), f'Faild to load video file {args.video_path}'
@@ -109,6 +139,12 @@ def main():
     # e.g. use ('backbone', ) to return backbone feature
     output_layer_names = None
 
+    # build pose smoother for temporal refinement
+    if args.smooth:
+        smoother = Smoother(filter_cfg=args.smooth_filter_cfg, keypoint_dim=2)
+    else:
+        smoother = None
+
     frame_id = 0
     while (cap.isOpened()):
         flag, img = cap.read()
@@ -129,8 +165,12 @@ def main():
             bbox_thr=args.bbox_thr,
             format='xyxy',
             dataset=dataset,
+            dataset_info=dataset_info,
             return_heatmap=return_heatmap,
             outputs=output_layer_names)
+
+        if smoother:
+            pose_results = smoother.smooth(pose_results)
 
         # show the results
         vis_img = vis_pose_tracking_result(
@@ -140,6 +180,7 @@ def main():
             radius=args.radius,
             thickness=args.thickness,
             dataset=dataset,
+            dataset_info=dataset_info,
             kpt_score_thr=args.kpt_thr,
             show=False)
 
@@ -149,7 +190,7 @@ def main():
         if save_out_video:
             videoWriter.write(vis_img)
 
-        if cv2.waitKey(1) & 0xFF == ord('q'):
+        if args.show and cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
         frame_id += 1
@@ -157,7 +198,8 @@ def main():
     cap.release()
     if save_out_video:
         videoWriter.release()
-    cv2.destroyAllWindows()
+    if args.show:
+        cv2.destroyAllWindows()
 
 
 if __name__ == '__main__':

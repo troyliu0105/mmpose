@@ -1,5 +1,6 @@
 import os
 import os.path as osp
+import platform
 import shutil
 import sys
 import warnings
@@ -19,6 +20,7 @@ def get_version():
     with open(version_file, 'r') as f:
         exec(compile(f.read(), version_file, 'exec'))
     import sys
+
     # return short version for sdist
     if 'sdist' in sys.argv or 'bdist_wheel' in sys.argv:
         return locals()['short_version']
@@ -40,9 +42,9 @@ def parse_requirements(fname='requirements.txt', with_version=True):
     CommandLine:
         python -c "import setup; print(setup.parse_requirements())"
     """
+    import re
     import sys
     from os.path import exists
-    import re
     require_fpath = fname
 
     def parse_line(line):
@@ -104,7 +106,7 @@ def parse_requirements(fname='requirements.txt', with_version=True):
     return packages
 
 
-def add_mim_extention():
+def add_mim_extension():
     """Add extra files that are required to support MIM into the package.
 
     These files will be added by creating a symlink to the originals if the
@@ -115,7 +117,10 @@ def add_mim_extention():
     # parse installment mode
     if 'develop' in sys.argv:
         # installed by `pip install -e .`
-        mode = 'symlink'
+        if platform.system() == 'Windows':
+            mode = 'copy'
+        else:
+            mode = 'symlink'
     elif 'sdist' in sys.argv or 'bdist_wheel' in sys.argv:
         # installed by `pip install .`
         # or create source distribution by `python setup.py sdist`
@@ -153,13 +158,14 @@ def add_mim_extention():
 
 
 if __name__ == '__main__':
-    add_mim_extention()
+    add_mim_extension()
     setup(
         name='mmpose',
         version=get_version(),
         description='OpenMMLab Pose Estimation Toolbox and Benchmark.',
-        maintainer='MMPose Authors',
-        maintainer_email='openmmlab@gmail.com',
+        author='MMPose Contributors',
+        author_email='openmmlab@gmail.com',
+        keywords='computer vision, pose estimation',
         long_description=readme(),
         long_description_content_type='text/markdown',
         packages=find_packages(exclude=('configs', 'tools', 'demo')),
@@ -173,11 +179,11 @@ if __name__ == '__main__':
             'Programming Language :: Python :: 3.5',
             'Programming Language :: Python :: 3.6',
             'Programming Language :: Python :: 3.7',
+            'Programming Language :: Python :: 3.8',
+            'Programming Language :: Python :: 3.9',
         ],
         url='https://github.com/open-mmlab/mmpose',
         license='Apache License 2.0',
-        setup_requires=parse_requirements('requirements/build.txt'),
-        tests_require=parse_requirements('requirements/tests.txt'),
         install_requires=parse_requirements('requirements/runtime.txt'),
         extras_require={
             'tests': parse_requirements('requirements/tests.txt'),

@@ -1,23 +1,25 @@
-import os
+# Copyright (c) OpenMMLab. All rights reserved.
+import os.path as osp
+import tempfile
 import warnings
 from collections import OrderedDict, defaultdict
 
 import json_tricks as json
 import numpy as np
-from xtcocotools.coco import COCO
+from mmcv import Config, deprecated_api_warning
 from xtcocotools.cocoeval import COCOeval
 
 from ....core.post_processing import oks_nms, soft_oks_nms
 from ...builder import DATASETS
-from .animal_base_dataset import AnimalBaseDataset
+from ..base import Kpt2dSviewRgbImgTopDownDataset
 
 
 @DATASETS.register_module()
-class AnimalMacaqueDataset(AnimalBaseDataset):
+class AnimalMacaqueDataset(Kpt2dSviewRgbImgTopDownDataset):
     """MacaquePose dataset for animal pose estimation.
 
-    `MacaquePose: A novel ‘in the wild’ macaque monkey pose dataset
-    for markerless motion capture' bioRxiv'2020
+    "MacaquePose: A novel ‘in the wild’ macaque monkey pose dataset
+    for markerless motion capture" bioRxiv'2020.
     More details can be found in the `paper
     <https://www.biorxiv.org/content/10.1101/2020.07.30.229989v1>`__ .
 
@@ -50,6 +52,7 @@ class AnimalMacaqueDataset(AnimalBaseDataset):
             Default: None.
         data_cfg (dict): config
         pipeline (list[dict | callable]): A sequence of data transforms.
+        dataset_info (DatasetInfo): A class containing all dataset info.
         test_mode (bool): Store True when building test or
             validation dataset. Default: False.
     """
@@ -59,62 +62,35 @@ class AnimalMacaqueDataset(AnimalBaseDataset):
                  img_prefix,
                  data_cfg,
                  pipeline,
+                 dataset_info=None,
                  test_mode=False):
+
+        if dataset_info is None:
+            warnings.warn(
+                'dataset_info is missing. '
+                'Check https://github.com/open-mmlab/mmpose/pull/663 '
+                'for details.', DeprecationWarning)
+            cfg = Config.fromfile('configs/_base_/datasets/macaque.py')
+            dataset_info = cfg._cfg_dict['dataset_info']
+
         super().__init__(
-            ann_file, img_prefix, data_cfg, pipeline, test_mode=test_mode)
+            ann_file,
+            img_prefix,
+            data_cfg,
+            pipeline,
+            dataset_info=dataset_info,
+            test_mode=test_mode)
 
         self.use_gt_bbox = data_cfg['use_gt_bbox']
         self.bbox_file = data_cfg['bbox_file']
         self.det_bbox_thr = data_cfg.get('det_bbox_thr', 0.0)
-        if 'image_thr' in data_cfg:
-            warnings.warn(
-                'image_thr is deprecated, '
-                'please use det_bbox_thr instead', DeprecationWarning)
-            self.det_bbox_thr = data_cfg['image_thr']
         self.use_nms = data_cfg.get('use_nms', True)
         self.soft_nms = data_cfg['soft_nms']
         self.nms_thr = data_cfg['nms_thr']
         self.oks_thr = data_cfg['oks_thr']
         self.vis_thr = data_cfg['vis_thr']
 
-        self.ann_info['flip_pairs'] = [[1, 2], [3, 4], [5, 6], [7, 8], [9, 10],
-                                       [11, 12], [13, 14], [15, 16]]
-
-        self.ann_info['upper_body_ids'] = (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
-        self.ann_info['lower_body_ids'] = (11, 12, 13, 14, 15, 16)
-
         self.ann_info['use_different_joint_weights'] = False
-        self.ann_info['joint_weights'] = np.array(
-            [
-                1., 1., 1., 1., 1., 1., 1., 1.2, 1.2, 1.5, 1.5, 1., 1., 1.2,
-                1.2, 1.5, 1.5
-            ],
-            dtype=np.float32).reshape((self.ann_info['num_joints'], 1))
-
-        # 'https://github.com/cocodataset/cocoapi/blob/master/PythonAPI/'
-        # 'pycocotools/cocoeval.py#L523'
-        self.sigmas = np.array([
-            .26, .25, .25, .35, .35, .79, .79, .72, .72, .62, .62, 1.07, 1.07,
-            .87, .87, .89, .89
-        ]) / 10.0
-
-        self.coco = COCO(ann_file)
-
-        cats = [
-            cat['name'] for cat in self.coco.loadCats(self.coco.getCatIds())
-        ]
-        self.classes = ['__background__'] + cats
-        self.num_classes = len(self.classes)
-        self._class_to_ind = dict(zip(self.classes, range(self.num_classes)))
-        self._class_to_coco_ind = dict(zip(cats, self.coco.getCatIds()))
-        self._coco_ind_to_class_ind = dict(
-            (self._class_to_coco_ind[cls], self._class_to_ind[cls])
-            for cls in self.classes[1:])
-        self.img_ids = self.coco.getImgIds()
-        self.num_images = len(self.img_ids)
-        self.id2name, self.name2id = self._get_mapping_id_name(self.coco.imgs)
-        self.dataset_name = 'macaque'
-
         self.db = self._get_db()
 
         print(f'=> num_images: {self.num_images}')
@@ -184,7 +160,7 @@ class AnimalMacaqueDataset(AnimalBaseDataset):
 
             center, scale = self._xywh2cs(*obj['clean_bbox'][:4])
 
-            image_file = os.path.join(self.img_prefix, self.id2name[img_id])
+            image_file = osp.join(self.img_prefix, self.id2name[img_id])
             rec.append({
                 'image_file': image_file,
                 'center': center,
@@ -201,9 +177,10 @@ class AnimalMacaqueDataset(AnimalBaseDataset):
 
         return rec
 
-    def evaluate(self, outputs, res_folder, metric='mAP', **kwargs):
+    @deprecated_api_warning(name_dict=dict(outputs='results'))
+    def evaluate(self, results, res_folder=None, metric='mAP', **kwargs):
         """Evaluate coco keypoint results. The pose prediction results will be
-        saved in `${res_folder}/result_keypoints.json`.
+        saved in ``${res_folder}/result_keypoints.json``.
 
         Note:
             batch_size: N
@@ -212,16 +189,20 @@ class AnimalMacaqueDataset(AnimalBaseDataset):
             heatmap width: W
 
         Args:
-            outputs (list(dict))
-                :preds (np.ndarray[N,K,3]): The first two dimensions are
+            results (list[dict]): Testing results containing the following
+                items:
+
+                - preds (np.ndarray[N,K,3]): The first two dimensions are \
                     coordinates, score is the third dimension of the array.
-                :boxes (np.ndarray[N,6]): [center[0], center[1], scale[0]
-                    , scale[1],area, score]
-                :image_paths (list[str]): For example, ['data/coco/val2017
+                - boxes (np.ndarray[N,6]): [center[0], center[1], scale[0], \
+                    scale[1],area, score]
+                - image_paths (list[str]): For example, ['data/coco/val2017\
                     /000000393226.jpg']
-                :heatmap (np.ndarray[N, K, H, W]): model output heatmap
-                :bbox_id (list(int)).
-            res_folder (str): Path of directory to save the results.
+                - heatmap (np.ndarray[N, K, H, W]): model output heatmap
+                - bbox_id (list(int)).
+            res_folder (str, optional): The folder to save the testing
+                results. If not specified, a temp folder will be created.
+                Default: None.
             metric (str | list[str]): Metric to be performed. Defaults: 'mAP'.
 
         Returns:
@@ -233,15 +214,20 @@ class AnimalMacaqueDataset(AnimalBaseDataset):
             if metric not in allowed_metrics:
                 raise KeyError(f'metric {metric} is not supported')
 
-        res_file = os.path.join(res_folder, 'result_keypoints.json')
+        if res_folder is not None:
+            tmp_folder = None
+            res_file = osp.join(res_folder, 'result_keypoints.json')
+        else:
+            tmp_folder = tempfile.TemporaryDirectory()
+            res_file = osp.join(tmp_folder.name, 'result_keypoints.json')
 
         kpts = defaultdict(list)
 
-        for output in outputs:
-            preds = output['preds']
-            boxes = output['boxes']
-            image_paths = output['image_paths']
-            bbox_ids = output['bbox_ids']
+        for result in results:
+            preds = result['preds']
+            boxes = result['boxes']
+            image_paths = result['image_paths']
+            bbox_ids = result['bbox_ids']
 
             batch_size = len(image_paths)
             for i in range(batch_size):
@@ -289,6 +275,9 @@ class AnimalMacaqueDataset(AnimalBaseDataset):
 
         info_str = self._do_python_keypoint_eval(res_file)
         name_value = OrderedDict(info_str)
+
+        if tmp_folder is not None:
+            tmp_folder.cleanup()
 
         return name_value
 

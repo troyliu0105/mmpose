@@ -1,37 +1,17 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 import os
+import warnings
 from argparse import ArgumentParser
 
 from mmpose.apis import (inference_top_down_pose_model, init_pose_model,
-                         vis_pose_result)
+                         process_mmdet_results, vis_pose_result)
+from mmpose.datasets import DatasetInfo
 
 try:
     from mmdet.apis import inference_detector, init_detector
     has_mmdet = True
 except (ImportError, ModuleNotFoundError):
     has_mmdet = False
-
-
-def process_mmdet_results(mmdet_results, cat_id=1):
-    """Process mmdet results, and return a list of bboxes.
-
-    :param mmdet_results:
-    :param cat_id: category id (default: 1 for human)
-    :return: a list of detected bounding boxes
-    """
-    if isinstance(mmdet_results, tuple):
-        det_results = mmdet_results[0]
-    else:
-        det_results = mmdet_results
-
-    bboxes = det_results[cat_id - 1]
-
-    person_results = []
-    for bbox in bboxes:
-        person = {}
-        person['bbox'] = bbox
-        person_results.append(person)
-
-    return person_results
 
 
 def main():
@@ -98,6 +78,14 @@ def main():
         args.pose_config, args.pose_checkpoint, device=args.device.lower())
 
     dataset = pose_model.cfg.data['test']['type']
+    dataset_info = pose_model.cfg.data['test'].get('dataset_info', None)
+    if dataset_info is None:
+        warnings.warn(
+            'Please set `dataset_info` in the config.'
+            'Check https://github.com/open-mmlab/mmpose/pull/663 for details.',
+            DeprecationWarning)
+    else:
+        dataset_info = DatasetInfo(dataset_info)
 
     image_name = os.path.join(args.img_root, args.img)
 
@@ -122,6 +110,7 @@ def main():
         bbox_thr=args.bbox_thr,
         format='xyxy',
         dataset=dataset,
+        dataset_info=dataset_info,
         return_heatmap=return_heatmap,
         outputs=output_layer_names)
 
@@ -137,6 +126,7 @@ def main():
         image_name,
         pose_results,
         dataset=dataset,
+        dataset_info=dataset_info,
         kpt_score_thr=args.kpt_thr,
         radius=args.radius,
         thickness=args.thickness,

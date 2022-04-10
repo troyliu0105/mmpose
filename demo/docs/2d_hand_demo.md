@@ -9,7 +9,7 @@
 We provide a demo script to test a single image, given gt json file.
 
 *Hand Pose Model Preparation:*
-The pre-trained hand pose estimation model can be downloaded from [model zoo](https://mmpose.readthedocs.io/en/latest/hand_models.html#).
+The pre-trained hand pose estimation model can be downloaded from [model zoo](https://mmpose.readthedocs.io/en/latest/topics/hand%282d%29.html).
 Take [onehand10k model](https://download.openmmlab.com/mmpose/top_down/resnet/res50_onehand10k_256x256-e67998f6_20200813.pth) as an example:
 
 ```shell
@@ -38,7 +38,7 @@ python demo/top_down_img_demo.py \
     configs/hand/2d_kpt_sview_rgb_img/topdown_heatmap/onehand10k/res50_onehand10k_256x256.py \
     https://download.openmmlab.com/mmpose/top_down/resnet/res50_onehand10k_256x256-e67998f6_20200813.pth \
     --img-root tests/data/onehand10k/ --json-file tests/data/onehand10k/test_onehand10k.json \
-    --out-img-root vis_results
+    --out-img-root vis_results \
     --device=cpu
 ```
 
@@ -50,7 +50,7 @@ Assume that you have already installed [mmdet](https://github.com/open-mmlab/mmd
 
 *Hand Box Model Preparation:* The pre-trained hand box estimation model can be found in [det model zoo](/demo/docs/mmdet_modelzoo.md).
 
-*Hand Pose Model Preparation:* The pre-trained hand pose estimation model can be downloaded from [pose model zoo](https://mmpose.readthedocs.io/en/latest/hand_models.html#).
+*Hand Pose Model Preparation:* The pre-trained hand pose estimation model can be downloaded from [pose model zoo](https://mmpose.readthedocs.io/en/latest/topics/hand%282d%29.html).
 
 ```shell
 python demo/top_down_img_demo_with_mmdet.py \
@@ -80,7 +80,7 @@ Assume that you have already installed [mmdet](https://github.com/open-mmlab/mmd
 
 *Hand Box Model Preparation:* The pre-trained hand box estimation model can be found in [det model zoo](/demo/docs/mmdet_modelzoo.md).
 
-*Hand Pose Model Preparation:* The pre-trained hand pose estimation model can be found in [pose model zoo](https://mmpose.readthedocs.io/en/latest/hand_models.html#).
+*Hand Pose Model Preparation:* The pre-trained hand pose estimation model can be found in [pose model zoo](https://mmpose.readthedocs.io/en/latest/topics/hand%282d%29.html).
 
 ```shell
 python demo/top_down_video_demo_with_mmdet.py \
@@ -99,7 +99,7 @@ python demo/top_down_video_demo_with_mmdet.py demo/mmdetection_cfg/cascade_rcnn_
     https://download.openmmlab.com/mmpose/mmdet_pretrained/cascade_rcnn_x101_64x4d_fpn_20e_onehand10k-dac19597_20201030.pth \
     configs/hand/2d_kpt_sview_rgb_img/topdown_heatmap/onehand10k/res50_onehand10k_256x256.py \
     https://download.openmmlab.com/mmpose/top_down/resnet/res50_onehand10k_256x256-e67998f6_20200813.pth \
-    --video-path demo/resources/demo_video.mp4 \
+    --video-path https://user-images.githubusercontent.com/87690686/137441388-3ea93d26-5445-4184-829e-bf7011def9e4.mp4 \
     --out-video-root vis_results
 ```
 

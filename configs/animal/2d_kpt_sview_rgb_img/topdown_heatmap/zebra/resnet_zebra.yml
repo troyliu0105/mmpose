@@ -1,49 +1,50 @@
 Collections:
-- Name: resnet_zebra
-  Metadata:
-    Architecture:
-    - SimpleBaseline2D
-  README: configs/animal/2d_kpt_sview_rgb_img/topdown_heatmap/zebra/resnet_zebra.md
+- Name: SimpleBaseline2D
   Paper:
-  - http://openaccess.thecvf.com/content_ECCV_2018/html/Bin_Xiao_Simple_Baselines_for_ECCV_2018_paper.html
-  - https://elifesciences.org/articles/47994
+    Title: Simple baselines for human pose estimation and tracking
+    URL: http://openaccess.thecvf.com/content_ECCV_2018/html/Bin_Xiao_Simple_Baselines_for_ECCV_2018_paper.html
+  README: https://github.com/open-mmlab/mmpose/blob/master/docs/en/papers/algorithms/simplebaseline2d.md
 Models:
-- Name: animal--2d_kpt_sview_rgb_img--topdown_heatmap--zebra--res50_zebra_160x160
-  In Collection: resnet_zebra
-  Config: configs/animal/2d_kpt_sview_rgb_img/topdown_heatmap/zebra/res50_zebra_160x160.py
+- Config: configs/animal/2d_kpt_sview_rgb_img/topdown_heatmap/zebra/res50_zebra_160x160.py
+  In Collection: SimpleBaseline2D
   Metadata:
+    Architecture: &id001
+    - SimpleBaseline2D
     Training Data: "Gr\xE9vy\u2019s Zebra"
+  Name: topdown_heatmap_res50_zebra_160x160
   Results:
-  - Task: 2D Animal Keypoint Detection
-    Dataset: "Gr\xE9vy\u2019s Zebra"
+  - Dataset: "Gr\xE9vy\u2019s Zebra"
     Metrics:
-      PCK@0.2: 1.0
       AUC: 0.914
       EPE: 1.86
-  Weights: https://download.openmmlab.com/mmpose/animal/resnet/res50_zebra_160x160-5a104833_20210407.pth
-- Name: animal--2d_kpt_sview_rgb_img--topdown_heatmap--zebra--res101_zebra_160x160
-  In Collection: resnet_zebra
-  Config: configs/animal/2d_kpt_sview_rgb_img/topdown_heatmap/zebra/res101_zebra_160x160.py
-  Metadata:
-    Training Data: "Gr\xE9vy\u2019s Zebra"
-  Results:
-  - Task: 2D Animal Keypoint Detection
-    Dataset: "Gr\xE9vy\u2019s Zebra"
-    Metrics:
       PCK@0.2: 1.0
+    Task: Animal 2D Keypoint
+  Weights: https://download.openmmlab.com/mmpose/animal/resnet/res50_zebra_160x160-5a104833_20210407.pth
+- Config: configs/animal/2d_kpt_sview_rgb_img/topdown_heatmap/zebra/res101_zebra_160x160.py
+  In Collection: SimpleBaseline2D
+  Metadata:
+    Architecture: *id001
+    Training Data: "Gr\xE9vy\u2019s Zebra"
+  Name: topdown_heatmap_res101_zebra_160x160
+  Results:
+  - Dataset: "Gr\xE9vy\u2019s Zebra"
+    Metrics:
       AUC: 0.916
       EPE: 1.82
-  Weights: https://download.openmmlab.com/mmpose/animal/resnet/res101_zebra_160x160-e8cb2010_20210407.pth
-- Name: animal--2d_kpt_sview_rgb_img--topdown_heatmap--zebra--res152_zebra_160x160
-  In Collection: resnet_zebra
-  Config: configs/animal/2d_kpt_sview_rgb_img/topdown_heatmap/zebra/res152_zebra_160x160.py
-  Metadata:
-    Training Data: "Gr\xE9vy\u2019s Zebra"
-  Results:
-  - Task: 2D Animal Keypoint Detection
-    Dataset: "Gr\xE9vy\u2019s Zebra"
-    Metrics:
       PCK@0.2: 1.0
+    Task: Animal 2D Keypoint
+  Weights: https://download.openmmlab.com/mmpose/animal/resnet/res101_zebra_160x160-e8cb2010_20210407.pth
+- Config: configs/animal/2d_kpt_sview_rgb_img/topdown_heatmap/zebra/res152_zebra_160x160.py
+  In Collection: SimpleBaseline2D
+  Metadata:
+    Architecture: *id001
+    Training Data: "Gr\xE9vy\u2019s Zebra"
+  Name: topdown_heatmap_res152_zebra_160x160
+  Results:
+  - Dataset: "Gr\xE9vy\u2019s Zebra"
+    Metrics:
       AUC: 0.921
       EPE: 1.66
+      PCK@0.2: 1.0
+    Task: Animal 2D Keypoint
   Weights: https://download.openmmlab.com/mmpose/animal/resnet/res152_zebra_160x160-05de71dd_20210407.pth

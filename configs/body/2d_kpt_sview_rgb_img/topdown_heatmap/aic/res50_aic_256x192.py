@@ -1,10 +1,8 @@
-log_level = 'INFO'
-load_from = None
-resume_from = None
-dist_params = dict(backend='nccl')
-workflow = [('train', 1)]
-checkpoint_config = dict(interval=10)
-evaluation = dict(interval=10, metric='mAP', key_indicator='AP')
+_base_ = [
+    '../../../../_base_/default_runtime.py',
+    '../../../../_base_/datasets/aic.py'
+]
+evaluation = dict(interval=10, metric='mAP', save_best='AP')
 
 optimizer = dict(
     type='Adam',
@@ -19,13 +17,6 @@ lr_config = dict(
     warmup_ratio=0.001,
     step=[170, 200])
 total_epochs = 210
-log_config = dict(
-    interval=50,
-    hooks=[
-        dict(type='TextLoggerHook'),
-        # dict(type='TensorboardLoggerHook')
-    ])
-
 channel_cfg = dict(
     num_output_channels=14,
     dataset_joints=14,
@@ -123,19 +114,21 @@ data = dict(
         img_prefix=f'{data_root}/ai_challenger_keypoint_train_20170902/'
         'keypoint_train_images_20170902/',
         data_cfg=data_cfg,
-        pipeline=train_pipeline),
+        pipeline=train_pipeline,
+        dataset_info={{_base_.dataset_info}}),
     val=dict(
         type='TopDownAicDataset',
         ann_file=f'{data_root}/annotations/aic_val.json',
         img_prefix=f'{data_root}/ai_challenger_keypoint_validation_20170911/'
         'keypoint_validation_images_20170911/',
         data_cfg=data_cfg,
-        pipeline=val_pipeline),
+        pipeline=val_pipeline,
+        dataset_info={{_base_.dataset_info}}),
     test=dict(
         type='TopDownAicDataset',
         ann_file=f'{data_root}/annotations/aic_val.json',
         img_prefix=f'{data_root}/ai_challenger_keypoint_validation_20170911/'
         'keypoint_validation_images_20170911/',
         data_cfg=data_cfg,
-        pipeline=val_pipeline),
-)
+        pipeline=test_pipeline,
+        dataset_info={{_base_.dataset_info}}))

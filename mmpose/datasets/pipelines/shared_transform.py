@@ -1,3 +1,4 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 import warnings
 from collections.abc import Sequence
 
@@ -27,7 +28,11 @@ class ToTensor:
     """
 
     def __call__(self, results):
-        results['img'] = F.to_tensor(results['img'])
+        if isinstance(results['img'], (list, tuple)):
+            results['img'] = [F.to_tensor(img) for img in results['img']]
+        else:
+            results['img'] = F.to_tensor(results['img'])
+
         return results
 
 
@@ -47,8 +52,15 @@ class NormalizeTensor:
         self.std = std
 
     def __call__(self, results):
-        results['img'] = F.normalize(
-            results['img'], mean=self.mean, std=self.std)
+        if isinstance(results['img'], (list, tuple)):
+            results['img'] = [
+                F.normalize(img, mean=self.mean, std=self.std)
+                for img in results['img']
+            ]
+        else:
+            results['img'] = F.normalize(
+                results['img'], mean=self.mean, std=self.std)
+
         return results
 
 
@@ -112,9 +124,9 @@ class Collect:
 
     Args:
         keys (Sequence[str|tuple]): Required keys to be collected. If a tuple
-          (key, key_new) is given as an element, the item retrived by key will
+          (key, key_new) is given as an element, the item retrieved by key will
           be renamed as key_new in collected data.
-        meta_name (str): The name of the key that contains meta infomation.
+        meta_name (str): The name of the key that contains meta information.
           This key is always populated. Default: "img_metas".
         meta_keys (Sequence[str|tuple]): Keys that are collected under
           meta_name. The contents of the `meta_name` dictionary depends
@@ -127,7 +139,7 @@ class Collect:
         self.meta_name = meta_name
 
     def __call__(self, results):
-        """Performs the Collect formating.
+        """Performs the Collect formatting.
 
         Args:
             results (dict): The resulting dict to be modified and passed
@@ -178,7 +190,9 @@ class Albumentation:
     to get more information about pixel-level transforms.
 
     An example of ``transforms`` is as followed:
-    .. code-block::
+
+    .. code-block:: python
+
         [
             dict(
                 type='RandomBrightnessContrast',
@@ -194,6 +208,7 @@ class Albumentation:
                 ],
                 p=0.1),
         ]
+
     Args:
         transforms (list[dict]): A list of Albumentation transformations
         keymap (dict): Contains {'input key':'albumentation-style key'},
@@ -222,8 +237,10 @@ class Albumentation:
         """Import a module from albumentations.
 
         It resembles some of :func:`build_from_cfg` logic.
+
         Args:
             cfg (dict): Config dict. It should at least contain the key "type".
+
         Returns:
             obj: The constructed object.
         """
@@ -255,9 +272,11 @@ class Albumentation:
         """Dictionary mapper.
 
         Renames keys according to keymap provided.
+
         Args:
             d (dict): old dict
             keymap (dict): {'old_key':'new_key'}
+
         Returns:
             dict: new dict.
         """
@@ -406,6 +425,50 @@ class PhotometricDistortion:
 
 
 @PIPELINES.register_module()
+class MultiItemProcess:
+    """Process each item and merge multi-item results to lists.
+
+    Args:
+        pipeline (dict): Dictionary to construct pipeline for a single item.
+    """
+
+    def __init__(self, pipeline):
+        self.pipeline = Compose(pipeline)
+
+    def __call__(self, results):
+        results_ = {}
+        for idx, result in results.items():
+            single_result = self.pipeline(result)
+            for k, v in single_result.items():
+                if k in results_:
+                    results_[k].append(v)
+                else:
+                    results_[k] = [v]
+
+        return results_
+
+
+@PIPELINES.register_module()
+class DiscardDuplicatedItems:
+
+    def __init__(self, keys_list):
+        """Discard duplicated single-item results.
+
+        Args:
+            keys_list (list): List of keys that need to be deduplicate.
+        """
+        self.keys_list = keys_list
+
+    def __call__(self, results):
+        for k, v in results.items():
+            if k in self.keys_list:
+                assert isinstance(v, Sequence)
+                results[k] = v[0]
+
+        return results
+
+
+@PIPELINES.register_module()
 class MultitaskGatherTarget:
     """Gather the targets for multitask heads.
 
@@ -414,29 +477,31 @@ class MultitaskGatherTarget:
         pipeline_indices (list[int]): Pipeline index of each head.
     """
 
-    def __init__(self, pipeline_list, pipeline_indices):
+    def __init__(self,
+                 pipeline_list,
+                 pipeline_indices=None,
+                 keys=('target', 'target_weight')):
+        self.keys = keys
         self.pipelines = []
         for pipeline in pipeline_list:
             self.pipelines.append(Compose(pipeline))
-        self.pipeline_indices = pipeline_indices
+        if pipeline_indices is None:
+            self.pipeline_indices = list(range(len(pipeline_list)))
+        else:
+            self.pipeline_indices = pipeline_indices
 
     def __call__(self, results):
         # generate target and target weights using all pipelines
-        _target, _target_weight = [], []
+        pipeline_outputs = []
         for pipeline in self.pipelines:
-            results_head = pipeline(results)
-            _target.append(results_head['target'])
-            _target_weight.append(results_head['target_weight'])
+            pipeline_output = pipeline(results)
+            pipeline_outputs.append(pipeline_output.copy())
 
-        # reorganize generated target, target_weights according
-        # to self.pipelines_indices
-        target, target_weight = [], []
-        for ind in self.pipeline_indices:
-            target.append(_target[ind])
-            target_weight.append(_target_weight[ind])
-
-        results['target'] = target
-        results['target_weight'] = target_weight
+        for key in self.keys:
+            result_key = []
+            for ind in self.pipeline_indices:
+                result_key.append(pipeline_outputs[ind].get(key, None))
+            results[key] = result_key
         return results
 
 
@@ -445,9 +510,9 @@ class RenameKeys:
     """Rename the keys.
 
     Args:
-    key_pairs (Sequence[tuple]): Required keys to be renamed. If a tuple
-    (key_src, key_tgt) is given as an element, the item retrived by key_src
-    will be renamed as key_tgt.
+        key_pairs (Sequence[tuple]): Required keys to be renamed.
+            If a tuple (key_src, key_tgt) is given as an element,
+            the item retrieved by key_src will be renamed as key_tgt.
     """
 
     def __init__(self, key_pairs):

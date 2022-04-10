@@ -1,20 +1,21 @@
-import os
+# Copyright (c) OpenMMLab. All rights reserved.
+import os.path as osp
+import tempfile
+import warnings
 from collections import OrderedDict
 
-import json_tricks as json
 import numpy as np
+from mmcv import Config, deprecated_api_warning
 
-from mmpose.core.evaluation.top_down_eval import (keypoint_nme,
-                                                  keypoint_pck_accuracy)
 from ...builder import DATASETS
-from .animal_base_dataset import AnimalBaseDataset
+from ..base import Kpt2dSviewRgbImgTopDownDataset
 
 
 @DATASETS.register_module()
-class AnimalHorse10Dataset(AnimalBaseDataset):
+class AnimalHorse10Dataset(Kpt2dSviewRgbImgTopDownDataset):
     """AnimalHorse10Dataset for animal pose estimation.
 
-    `Pretraining boosts out-of-domain robustness for pose estimation'
+    "Pretraining boosts out-of-domain robustness for pose estimation"
     WACV'2021. More details can be found in the `paper
     <https://arxiv.org/pdf/1909.11229.pdf>`__ .
 
@@ -52,6 +53,7 @@ class AnimalHorse10Dataset(AnimalBaseDataset):
             Default: None.
         data_cfg (dict): config
         pipeline (list[dict | callable]): A sequence of data transforms.
+        dataset_info (DatasetInfo): A class containing all dataset info.
         test_mode (bool): Store True when building test or
             validation dataset. Default: False.
     """
@@ -61,17 +63,26 @@ class AnimalHorse10Dataset(AnimalBaseDataset):
                  img_prefix,
                  data_cfg,
                  pipeline,
+                 dataset_info=None,
                  test_mode=False):
 
+        if dataset_info is None:
+            warnings.warn(
+                'dataset_info is missing. '
+                'Check https://github.com/open-mmlab/mmpose/pull/663 '
+                'for details.', DeprecationWarning)
+            cfg = Config.fromfile('configs/_base_/datasets/horse10.py')
+            dataset_info = cfg._cfg_dict['dataset_info']
+
         super().__init__(
-            ann_file, img_prefix, data_cfg, pipeline, test_mode=test_mode)
+            ann_file,
+            img_prefix,
+            data_cfg,
+            pipeline,
+            dataset_info=dataset_info,
+            test_mode=test_mode)
 
         self.ann_info['use_different_joint_weights'] = False
-        assert self.ann_info['num_joints'] == 22
-        self.ann_info['joint_weights'] = \
-            np.ones((self.ann_info['num_joints'], 1), dtype=np.float32)
-
-        self.dataset_name = 'horse10'
         self.db = self._get_db()
 
         print(f'=> num_images: {self.num_images}')
@@ -100,8 +111,7 @@ class AnimalHorse10Dataset(AnimalBaseDataset):
                 # use 1.25 padded bbox as input
                 center, scale = self._xywh2cs(*obj['bbox'][:4], 1.25)
 
-                image_file = os.path.join(self.img_prefix,
-                                          self.id2name[img_id])
+                image_file = osp.join(self.img_prefix, self.id2name[img_id])
 
                 gt_db.append({
                     'image_file': image_file,
@@ -127,7 +137,7 @@ class AnimalHorse10Dataset(AnimalBaseDataset):
         Args:
             gts (np.ndarray[N, K, 2]): Groundtruth keypoint location.
 
-        Return:
+        Returns:
             np.ndarray[N, 2]: normalized factor
         """
 
@@ -135,70 +145,30 @@ class AnimalHorse10Dataset(AnimalBaseDataset):
             gts[:, 0, :] - gts[:, 1, :], axis=1, keepdims=True)
         return np.tile(interocular, [1, 2])
 
-    def _report_metric(self, res_file, metrics, pck_thr=0.3):
-        """Keypoint evaluation.
-
-        Args:
-            res_file (str): Json file stored prediction results.
-            metrics (str | list[str]): Metric to be performed.
-                Options: 'PCK', 'NME'.
-            pck_thr (float): PCK threshold, default: 0.3.
-
-        Returns:
-            dict: Evaluation results for evaluation metric.
-        """
-        info_str = []
-
-        with open(res_file, 'r') as fin:
-            preds = json.load(fin)
-        assert len(preds) == len(self.db)
-
-        outputs = []
-        gts = []
-        masks = []
-
-        for pred, item in zip(preds, self.db):
-            outputs.append(np.array(pred['keypoints'])[:, :-1])
-            gts.append(np.array(item['joints_3d'])[:, :-1])
-            masks.append((np.array(item['joints_3d_visible'])[:, 0]) > 0)
-
-        outputs = np.array(outputs)
-        gts = np.array(gts)
-        masks = np.array(masks)
-
-        normalize_factor = self._get_normalize_factor(gts)
-
-        if 'PCK' in metrics:
-            _, pck, _ = keypoint_pck_accuracy(outputs, gts, masks, pck_thr,
-                                              normalize_factor)
-            info_str.append(('PCK', pck))
-
-        if 'NME' in metrics:
-            info_str.append(
-                ('NME', keypoint_nme(outputs, gts, masks, normalize_factor)))
-
-        return info_str
-
-    def evaluate(self, outputs, res_folder, metric='PCK', **kwargs):
+    @deprecated_api_warning(name_dict=dict(outputs='results'))
+    def evaluate(self, results, res_folder=None, metric='PCK', **kwargs):
         """Evaluate horse-10 keypoint results. The pose prediction results will
-        be saved in `${res_folder}/result_keypoints.json`.
+        be saved in ``${res_folder}/result_keypoints.json``.
 
         Note:
-            batch_size: N
-            num_keypoints: K
-            heatmap height: H
-            heatmap width: W
+            - batch_size: N
+            - num_keypoints: K
+            - heatmap height: H
+            - heatmap width: W
 
         Args:
-            outputs (list(preds, boxes, image_path, output_heatmap))
-                :preds (np.ndarray[N,K,3]): The first two dimensions are
-                    coordinates, score is the third dimension of the array.
-                :boxes (np.ndarray[N,6]): [center[0], center[1], scale[0]
-                    , scale[1],area, score]
-                :image_paths (list[str]): For example, ['Test/source/0.jpg']
-                :output_heatmap (np.ndarray[N, K, H, W]): model outpus.
+            results (list[dict]): Testing results containing the following
+                items:
 
-            res_folder (str): Path of directory to save the results.
+                - preds (np.ndarray[N,K,3]): The first two dimensions are \
+                    coordinates, score is the third dimension of the array.
+                - boxes (np.ndarray[N,6]): [center[0], center[1], scale[0], \
+                    scale[1],area, score]
+                - image_paths (list[str]): For example, ['Test/source/0.jpg']
+                - output_heatmap (np.ndarray[N, K, H, W]): model outputs.
+            res_folder (str, optional): The folder to save the testing
+                results. If not specified, a temp folder will be created.
+                Default: None.
             metric (str | list[str]): Metric to be performed.
                 Options: 'PCK', 'NME'.
 
@@ -211,14 +181,19 @@ class AnimalHorse10Dataset(AnimalBaseDataset):
             if metric not in allowed_metrics:
                 raise KeyError(f'metric {metric} is not supported')
 
-        res_file = os.path.join(res_folder, 'result_keypoints.json')
+        if res_folder is not None:
+            tmp_folder = None
+            res_file = osp.join(res_folder, 'result_keypoints.json')
+        else:
+            tmp_folder = tempfile.TemporaryDirectory()
+            res_file = osp.join(tmp_folder.name, 'result_keypoints.json')
 
         kpts = []
-        for output in outputs:
-            preds = output['preds']
-            boxes = output['boxes']
-            image_paths = output['image_paths']
-            bbox_ids = output['bbox_ids']
+        for result in results:
+            preds = result['preds']
+            boxes = result['boxes']
+            image_paths = result['image_paths']
+            bbox_ids = result['bbox_ids']
 
             batch_size = len(image_paths)
             for i in range(batch_size):
@@ -238,5 +213,8 @@ class AnimalHorse10Dataset(AnimalBaseDataset):
         self._write_keypoint_results(kpts, res_file)
         info_str = self._report_metric(res_file, metrics)
         name_value = OrderedDict(info_str)
+
+        if tmp_folder is not None:
+            tmp_folder.cleanup()
 
         return name_value

@@ -1,5 +1,7 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 import mmcv
 import numpy as np
+from mmcv.utils.misc import deprecated_api_warning
 
 from mmpose.core import imshow_keypoints, imshow_keypoints_3d
 from ..builder import POSENETS
@@ -25,17 +27,17 @@ class Interhand3D(TopDown):
         return_loss=True. Note this setting will change the expected inputs.
         When `return_loss=True`, img and img_meta are single-nested (i.e.
         Tensor and List[dict]), and when `resturn_loss=False`, img and img_meta
-        should be double nested (i.e.  List[Tensor], List[List[dict]]), with
+        should be double nested (i.e.  list[Tensor], list[list[dict]]), with
         the outer list indicating test time augmentations.
 
         Note:
-            batch_size: N
-            num_keypoints: K
-            num_img_channel: C (Default: 3)
-            img height: imgH
-            img width: imgW
-            heatmaps height: H
-            heatmaps weight: W
+            - batch_size: N
+            - num_keypoints: K
+            - num_img_channel: C (Default: 3)
+            - img height: imgH
+            - img width: imgW
+            - heatmaps height: H
+            - heatmaps weight: W
 
         Args:
             img (torch.Tensor[NxCximgHximgW]): Input images.
@@ -45,22 +47,23 @@ class Interhand3D(TopDown):
             heatmaps, relative hand root depth and hand type.
             img_metas (list(dict)): Information about data augmentation
                 By default this includes:
+
                 - "image_file: path to the image file
                 - "center": center of the bbox
                 - "scale": scale of the bbox
                 - "rotation": rotation of the bbox
                 - "bbox_score": score of bbox
                 - "heatmap3d_depth_bound": depth bound of hand keypoint 3D
-                heatmap
+                    heatmap
                 - "root_depth_bound": depth bound of relative root depth 1D
-                heatmap
+                    heatmap
             return_loss (bool): Option to `return loss`. `return loss=True`
                 for training, `return loss=False` for validation & test.
 
         Returns:
-            dict|tuple: if `return loss` is true, then return losses.
-              Otherwise, return predicted poses, boxes, image paths, heatmaps,
-              relative hand root depth and hand type.
+            dict|tuple: if `return loss` is true, then return losses. \
+                Otherwise, return predicted poses, boxes, image paths, \
+                heatmaps, relative hand root depth and hand type.
         """
         if return_loss:
             return self.forward_train(img, target, target_weight, img_metas,
@@ -99,6 +102,8 @@ class Interhand3D(TopDown):
             result = {}
         return result
 
+    @deprecated_api_warning({'pose_limb_color': 'pose_link_color'},
+                            cls_name='Interhand3D')
     def show_result(self,
                     result,
                     img=None,
@@ -108,7 +113,7 @@ class Interhand3D(TopDown):
                     bbox_color='green',
                     thickness=2,
                     pose_kpt_color=None,
-                    pose_limb_color=None,
+                    pose_link_color=None,
                     vis_height=400,
                     num_instances=-1,
                     win_name='',
@@ -119,6 +124,7 @@ class Interhand3D(TopDown):
 
         Args:
             result (list[dict]): The pose estimation results containing:
+
                 - "keypoints_3d" ([K,4]): 3D keypoints
                 - "keypoints" ([K,3] or [T,K,3]): Optional for visualizing
                     2D inputs. If a sequence is given, only the last frame
@@ -127,7 +133,7 @@ class Interhand3D(TopDown):
                 - "title" (str): title for the subplot
             img (str or Tensor): Optional. The image to visualize 2D inputs on.
             skeleton (list of [idx_i,idx_j]): Skeleton described by a list of
-                limbs, each is a pair of joint indices.
+                links, each is a pair of joint indices.
             kpt_score_thr (float, optional): Minimum score of keypoints
                 to be shown. Default: 0.3.
             radius (int): Radius of circles.
@@ -135,9 +141,9 @@ class Interhand3D(TopDown):
             thickness (int): Thickness of lines.
             pose_kpt_color (np.array[Nx3]`): Color of N keypoints.
                 If None, do not draw keypoints.
-            pose_limb_color (np.array[Mx3]): Color of M limbs.
+            pose_link_color (np.array[Mx3]): Color of M limbs.
                 If None, do not draw limbs.
-            vis_height (int): The image hight of the visualization. The width
+            vis_height (int): The image height of the visualization. The width
                 will be N*vis_height depending on the number of visualized
                 items.
             num_instances (int): Number of instances to be shown in 3D. If
@@ -154,7 +160,6 @@ class Interhand3D(TopDown):
         Returns:
             Tensor: Visualized img, only if not `show` or `out_file`.
         """
-
         if num_instances < 0:
             assert len(result) > 0
         result = sorted(result, key=lambda x: x.get('track_id', 0))
@@ -195,7 +200,7 @@ class Interhand3D(TopDown):
                     skeleton,
                     kpt_score_thr=kpt_score_thr,
                     pose_kpt_color=pose_kpt_color,
-                    pose_limb_color=pose_limb_color,
+                    pose_link_color=pose_link_color,
                     radius=radius,
                     thickness=thickness)
             img = mmcv.imrescale(img, scale=vis_height / img.shape[0])
@@ -205,7 +210,7 @@ class Interhand3D(TopDown):
             img,
             skeleton,
             pose_kpt_color,
-            pose_limb_color,
+            pose_link_color,
             vis_height,
             axis_limit=300,
             axis_azimuth=-115,
