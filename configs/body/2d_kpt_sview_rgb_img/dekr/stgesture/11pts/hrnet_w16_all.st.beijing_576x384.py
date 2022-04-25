@@ -1,9 +1,7 @@
-_base_ = ['../../../../_base_/datasets/st_rail_gesture.py']
-log_level = 'INFO'
-load_from = None
-resume_from = None
-dist_params = dict(backend='nccl')
-workflow = [('train', 1)]
+_base_ = [
+    '../../../../../_base_/default_runtime.py',
+    '../../../../../_base_/datasets/st_rail_gesture.py'
+]
 checkpoint_config = dict(interval=10)
 evaluation = dict(interval=10, metric='mAP', save_best='AP')
 
@@ -34,7 +32,7 @@ channel_cfg = dict(
         [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
     ],
     # inference_channel=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
-    inference_channel=[0, 1, 2, 3, 4, 8, 5, 6, 7])
+    inference_channel=[11, 0, 1, 2, 3, 4, 8, 5, 6, 7, 9])
 
 data_cfg = dict(
     image_size=[576, 384],
@@ -83,13 +81,13 @@ model = dict(
     ),
     keypoint_head=dict(
         type='DEKRHead',
-        in_channels=[16, 32, 64, 128],
-        in_index=[0, 1, 2, 3],
+        in_channels=[16, 128],
+        in_index=[0, 3],
         num_joints=channel_cfg['num_output_channels'],
         transition_head_channels=32,
         offset_pre_kpt=15,
         offset_pre_blocks=1,
-        offset_feature_type="AdaptBlock",
+        offset_feature_type="BasicBlock",
         input_transform="resize_concat",
         loss_keypoint=dict(
             type='DEKRMultiLossFactory',
@@ -107,8 +105,8 @@ model = dict(
         scale_factor=[1],
         with_heatmaps=[True],
         project2image=False,
-        align_corners=False,
-        detection_threshold=0.01,
+        align_corners=True,
+        detection_threshold=0.2,
         nms_kernel=5,
         nms_padding=2,
         ignore_too_much=False,
@@ -121,7 +119,7 @@ train_pipeline = [
     dict(
         type='BottomUpRandomAffine',
         rot_factor=30,
-        scale_factor=[0.8, 1.2],
+        scale_factor=[0.75, 1.5],
         scale_type='short',
         trans_factor=40),
     dict(type='BottomUpRandomFlip', flip_prob=0.5),
@@ -160,7 +158,7 @@ val_pipeline = [
 
 test_pipeline = val_pipeline
 
-data_root = 'data'
+data_root = 'data/rails'
 data = dict(
     workers_per_gpu=2,
     train_dataloader=dict(samples_per_gpu=32),
@@ -169,52 +167,63 @@ data = dict(
     train=[
         dict(
             type='BottomUpSTGestureDataset',
-            ann_file=f'{data_root}/rails/rm_beijing/rm_beijing.20211123.train.json',
-            img_prefix=f'{data_root}/rails/rm_beijing/images/',
+            ann_file=f'{data_root}/rm_beijing/rm_beijing.20211123.train.json',
+            img_prefix=f'{data_root}/rm_beijing/images/',
             data_cfg=data_cfg,
             pipeline=train_pipeline,
             dataset_info={{_base_.dataset_info}}),
         dict(
             type='BottomUpSTGestureDataset',
-            ann_file=f'{data_root}/rails/rm_dalian/rm_dalian.20211123.train.json',
-            img_prefix=f'{data_root}/rails/rm_dalian/images/',
+            ann_file=f'{data_root}/rm_dalian/rm_dalian.20211123.train.json',
+            img_prefix=f'{data_root}/rm_dalian/images/',
             data_cfg=data_cfg,
             pipeline=train_pipeline,
             dataset_info={{_base_.dataset_info}}),
         dict(
             type='BottomUpSTGestureDataset',
-            ann_file=f'{data_root}/rails/rm_shuohuang/rm_shuohuang.20211127.train.json',
-            img_prefix=f'{data_root}/rails/rm_shuohuang/images/',
+            ann_file=f'{data_root}/rm_shuohuang/9pts.train.json',
+            img_prefix=f'{data_root}/rm_shuohuang/9pts_images/',
             data_cfg=data_cfg,
             pipeline=train_pipeline,
             dataset_info={{_base_.dataset_info}}),
         dict(
             type='BottomUpSTGestureDataset',
-            ann_file=f'{data_root}/rails/rm_shuohuang/rm_shuohuang.20211206.train.json',
-            img_prefix=f'{data_root}/rails/rm_shuohuang/images/',
+            ann_file=f'{data_root}/rm_shuohuang/11pts.train.json',
+            img_prefix=f'{data_root}/rm_shuohuang/11pts_images/',
             data_cfg=data_cfg,
             pipeline=train_pipeline,
+            dataset_info={{_base_.dataset_info}})
+    ],
+    val=[
+        dict(
+            type='BottomUpSTGestureDataset',
+            ann_file=f'{data_root}/rm_shuohuang/9pts.val.json',
+            img_prefix=f'{data_root}/rm_shuohuang/9pts_images/',
+            data_cfg=data_cfg,
+            pipeline=val_pipeline,
             dataset_info={{_base_.dataset_info}}),
         dict(
             type='BottomUpSTGestureDataset',
-            ann_file=f'{data_root}/coco/annotations/stgesture_person_keypoints_train2017.json',
-            img_prefix=f'{data_root}/coco/train2017/',
+            ann_file=f'{data_root}/rm_shuohuang/11pts.val.json',
+            img_prefix=f'{data_root}/rm_shuohuang/11pts_images/',
             data_cfg=data_cfg,
-            pipeline=train_pipeline,
+            pipeline=val_pipeline,
             dataset_info={{_base_.dataset_info}}),
     ],
-    val=dict(
-        type='BottomUpSTGestureDataset',
-        ann_file=f'{data_root}/rails/rm_shuohuang/rm_shuohuang.20211127.val.json',
-        img_prefix=f'{data_root}/rails/rm_shuohuang/images/',
-        data_cfg=data_cfg,
-        pipeline=val_pipeline,
-        dataset_info={{_base_.dataset_info}}),
-    test=dict(
-        type='BottomUpSTGestureDataset',
-        ann_file=f'{data_root}/rails/rm_shuohuang/rm_shuohuang.20211127.val.json',
-        img_prefix=f'{data_root}/rails/rm_shuohuang/images/',
-        data_cfg=data_cfg,
-        pipeline=val_pipeline,
-        dataset_info={{_base_.dataset_info}}),
+    test=[
+        dict(
+            type='BottomUpSTGestureDataset',
+            ann_file=f'{data_root}/rm_shuohuang/9pts.val.json',
+            img_prefix=f'{data_root}/rm_shuohuang/9pts_images/',
+            data_cfg=data_cfg,
+            pipeline=val_pipeline,
+            dataset_info={{_base_.dataset_info}}),
+        dict(
+            type='BottomUpSTGestureDataset',
+            ann_file=f'{data_root}/rm_shuohuang/11pts.val.json',
+            img_prefix=f'{data_root}/rm_shuohuang/11pts_images/',
+            data_cfg=data_cfg,
+            pipeline=val_pipeline,
+            dataset_info={{_base_.dataset_info}}),
+    ]
 )

@@ -1,9 +1,7 @@
-_base_ = ['../../../../_base_/datasets/st_rail_gesture.py']
-log_level = 'INFO'
-load_from = None
-resume_from = None
-dist_params = dict(backend='nccl')
-workflow = [('train', 1)]
+_base_ = [
+    '../../../../../_base_/default_runtime.py',
+    '../../../../../_base_/datasets/st_rail_gesture.py'
+]
 checkpoint_config = dict(interval=10)
 evaluation = dict(interval=10, metric='mAP', save_best='AP')
 
@@ -34,6 +32,7 @@ channel_cfg = dict(
         [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
     ],
     inference_channel=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
+# inference_channel=[11, 0, 1, 2, 3, 4, 8, 5, 6, 7, 9])
 
 data_cfg = dict(
     image_size=[576, 384],
@@ -58,8 +57,8 @@ model = dict(
                 num_modules=1,
                 num_branches=1,
                 block='BOTTLENECK',
-                num_blocks=(4, ),
-                num_channels=(32, )),
+                num_blocks=(4,),
+                num_channels=(32,)),
             stage2=dict(
                 num_modules=1,
                 num_branches=2,
@@ -82,17 +81,17 @@ model = dict(
     ),
     keypoint_head=dict(
         type='DEKRHead',
-        in_channels=[16, 32, 64, 128],
-        in_index=[0, 1, 2, 3],
+        in_channels=[16, 128],
+        in_index=[0, 3],
         num_joints=channel_cfg['num_output_channels'],
         transition_head_channels=32,
         offset_pre_kpt=15,
         offset_pre_blocks=1,
-        offset_feature_type="AdaptBlock",
+        offset_feature_type="BasicBlock",
         input_transform="resize_concat",
         loss_keypoint=dict(
             type='DEKRMultiLossFactory',
-            supervise_empty=False,
+            supervise_empty=True,
             num_joints=channel_cfg['num_output_channels'],
             num_stages=1,
             bg_weight=0.1,
@@ -106,8 +105,8 @@ model = dict(
         scale_factor=[1],
         with_heatmaps=[True],
         project2image=False,
-        align_corners=False,
-        detection_threshold=0.01,
+        align_corners=True,
+        detection_threshold=0.2,
         nms_kernel=5,
         nms_padding=2,
         ignore_too_much=False,
@@ -159,33 +158,31 @@ val_pipeline = [
 
 test_pipeline = val_pipeline
 
-data_root = 'data/rails'
+data_root = 'data/coco'
 data = dict(
     workers_per_gpu=2,
     train_dataloader=dict(samples_per_gpu=32),
     val_dataloader=dict(samples_per_gpu=1),
     test_dataloader=dict(samples_per_gpu=1),
-    train=[
-        dict(
-            type='BottomUpSTGestureDataset',
-            ann_file=f'{data_root}/rm_beijing/rm_beijing.20211123.train.json',
-            img_prefix=f'{data_root}/rm_beijing/images/',
-            data_cfg=data_cfg,
-            pipeline=train_pipeline,
-            dataset_info={{_base_.dataset_info}}),
-    ],
+    train=dict(
+        type='BottomUpSTGestureDataset',
+        ann_file=f'{data_root}/annotations/stgesture_person_keypoints_train2017.json',
+        img_prefix=f'{data_root}/train2017/',
+        data_cfg=data_cfg,
+        pipeline=train_pipeline,
+        dataset_info={{_base_.dataset_info}}),
     val=dict(
         type='BottomUpSTGestureDataset',
-        ann_file=f'{data_root}/rm_beijing/rm_beijing.20211123.val.json',
-        img_prefix=f'{data_root}/rm_beijing/images/',
+        ann_file=f'{data_root}/annotations/stgesture_person_keypoints_val2017.json',
+        img_prefix=f'{data_root}/val2017/',
         data_cfg=data_cfg,
-        pipeline=val_pipeline,
+        pipeline=train_pipeline,
         dataset_info={{_base_.dataset_info}}),
     test=dict(
         type='BottomUpSTGestureDataset',
-        ann_file=f'{data_root}/rm_beijing/rm_beijing.20211123.val.json',
-        img_prefix=f'{data_root}/rm_beijing/images/',
+        ann_file=f'{data_root}/annotations/stgesture_person_keypoints_val2017.json',
+        img_prefix=f'{data_root}/val2017/',
         data_cfg=data_cfg,
-        pipeline=test_pipeline,
-        dataset_info={{_base_.dataset_info}}),
+        pipeline=train_pipeline,
+        dataset_info={{_base_.dataset_info}})
 )
