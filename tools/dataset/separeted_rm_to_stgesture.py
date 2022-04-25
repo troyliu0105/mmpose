@@ -1,5 +1,6 @@
 """
-0:0,1:1,2:2,3:3,4:4,5:8,6:5,7:6,8:7,9:11,10:9
+9pts:   0:0,1:1,2:2,3:3,4:4,5:8,6:5,7:6,8:7
+11pts:  0:11,1:0,2:1,3:2,4:3,5:4,6:8,7:5,8:6,9:7,10:9
 beijing:    "left_wrist", "left_elbow", "left_shoulder",
             "head", "neck", "butt",
             "right_shoulder", "right_elbow", "right_wrist"
@@ -32,11 +33,17 @@ if __name__ == '__main__':
 
     # 关键点标签名
     kps_labels = [
+        # 0         , 1           , 2
         "left_wrist", "left_elbow", "left_shoulder",
+        # 3   , 4
         "head", "neck",
+        # 5             , 6            , 7
         "right_shoulder", "right_elbow", "right_wrist",
+        # 8
         "butt",
+        # 9         , 10
         "right_knee", "right_ankle",
+        # 11       , 12
         "left_knee", "left_ankle",
     ]
     root_categories = [{
