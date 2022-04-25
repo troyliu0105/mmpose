@@ -15,6 +15,7 @@ from mmpose.apis import multi_gpu_test, single_gpu_test
 from mmpose.datasets import build_dataloader, build_dataset
 from mmpose.models import build_posenet
 from mmpose.utils import setup_multi_processes
+from mmpose.utils.misc import update_data_root
 
 try:
     from mmcv.runner import wrap_fp16_model
@@ -90,6 +91,9 @@ def main():
     args = parse_args()
 
     cfg = Config.fromfile(args.config)
+
+    # update data root according to MMDET_DATASETS
+    update_data_root(cfg)
 
     if args.cfg_options is not None:
         cfg.merge_from_dict(args.cfg_options)

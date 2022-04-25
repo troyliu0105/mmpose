@@ -18,6 +18,7 @@ from mmpose.apis import init_random_seed, train_model
 from mmpose.datasets import build_dataset
 from mmpose.models import build_posenet
 from mmpose.utils import collect_env, get_root_logger, setup_multi_processes
+from mmpose.utils.misc import update_data_root
 
 try:
     from torch.distributed.elastic.multiprocessing.errors import record
@@ -95,6 +96,9 @@ def main():
     args = parse_args()
 
     cfg = Config.fromfile(args.config)
+
+    # update data root according to MMDET_DATASETS
+    update_data_root(cfg)
 
     if args.cfg_options is not None:
         cfg.merge_from_dict(args.cfg_options)
