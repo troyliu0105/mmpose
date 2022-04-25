@@ -176,13 +176,13 @@ data = dict(
         ann_file=f'{data_root}/annotations/stgesture_person_keypoints_val2017.json',
         img_prefix=f'{data_root}/val2017/',
         data_cfg=data_cfg,
-        pipeline=train_pipeline,
+        pipeline=val_pipeline,
         dataset_info={{_base_.dataset_info}}),
     test=dict(
         type='BottomUpSTGestureDataset',
         ann_file=f'{data_root}/annotations/stgesture_person_keypoints_val2017.json',
         img_prefix=f'{data_root}/val2017/',
         data_cfg=data_cfg,
-        pipeline=train_pipeline,
+        pipeline=test_pipeline,
         dataset_info={{_base_.dataset_info}})
 )
