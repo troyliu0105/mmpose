@@ -182,48 +182,30 @@ data = dict(
         dict(
             type='BottomUpSTGestureDataset',
             ann_file=f'{data_root}/rm_shuohuang/9pts.train.json',
-            img_prefix=f'{data_root}/rm_shuohuang/9pts_images/',
+            img_prefix=f'{data_root}/rm_shuohuang/images/',
             data_cfg=data_cfg,
             pipeline=train_pipeline,
             dataset_info={{_base_.dataset_info}}),
         dict(
             type='BottomUpSTGestureDataset',
             ann_file=f'{data_root}/rm_shuohuang/11pts.train.json',
-            img_prefix=f'{data_root}/rm_shuohuang/11pts_images/',
+            img_prefix=f'{data_root}/rm_shuohuang/images/',
             data_cfg=data_cfg,
             pipeline=train_pipeline,
             dataset_info={{_base_.dataset_info}})
     ],
-    val=[
-        dict(
-            type='BottomUpSTGestureDataset',
-            ann_file=f'{data_root}/rm_shuohuang/9pts.val.json',
-            img_prefix=f'{data_root}/rm_shuohuang/9pts_images/',
-            data_cfg=data_cfg,
-            pipeline=val_pipeline,
-            dataset_info={{_base_.dataset_info}}),
-        dict(
-            type='BottomUpSTGestureDataset',
-            ann_file=f'{data_root}/rm_shuohuang/11pts.val.json',
-            img_prefix=f'{data_root}/rm_shuohuang/11pts_images/',
-            data_cfg=data_cfg,
-            pipeline=val_pipeline,
-            dataset_info={{_base_.dataset_info}}),
-    ],
-    test=[
-        dict(
-            type='BottomUpSTGestureDataset',
-            ann_file=f'{data_root}/rm_shuohuang/9pts.val.json',
-            img_prefix=f'{data_root}/rm_shuohuang/9pts_images/',
-            data_cfg=data_cfg,
-            pipeline=test_pipeline,
-            dataset_info={{_base_.dataset_info}}),
-        dict(
-            type='BottomUpSTGestureDataset',
-            ann_file=f'{data_root}/rm_shuohuang/11pts.val.json',
-            img_prefix=f'{data_root}/rm_shuohuang/11pts_images/',
-            data_cfg=data_cfg,
-            pipeline=test_pipeline,
-            dataset_info={{_base_.dataset_info}}),
-    ]
+    val=dict(
+        type='BottomUpSTGestureDataset',
+        ann_file=f'{data_root}/rm_shuohuang/9pts.11pts.val.json',
+        img_prefix=f'{data_root}/rm_shuohuang/images/',
+        data_cfg=data_cfg,
+        pipeline=val_pipeline,
+        dataset_info={{_base_.dataset_info}}),
+    test=dict(
+        type='BottomUpSTGestureDataset',
+        ann_file=f'{data_root}/rm_shuohuang/9pts.11pts.val.json',
+        img_prefix=f'{data_root}/rm_shuohuang/images/',
+        data_cfg=data_cfg,
+        pipeline=test_pipeline,
+        dataset_info={{_base_.dataset_info}})
 )
