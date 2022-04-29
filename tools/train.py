@@ -3,8 +3,10 @@ import argparse
 import copy
 import os
 import os.path as osp
+import sys
 import time
 import warnings
+sys.path.append(".")
 
 import mmcv
 import torch
