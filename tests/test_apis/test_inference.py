@@ -3,10 +3,12 @@ import copy
 import os.path as osp
 from glob import glob
 
+import json_tricks as json
 import mmcv
 import numpy as np
 
 from mmpose.apis import (collect_multi_frames, inference_bottom_up_pose_model,
+                         inference_gesture_model,
                          inference_top_down_pose_model, init_pose_model,
                          process_mmdet_results, vis_pose_result)
 from mmpose.datasets import DatasetInfo
@@ -24,6 +26,29 @@ def test_top_down_demo():
     dataset_info = DatasetInfo(pose_model.cfg.data['test'].get(
         'dataset_info', None))
 
+    person_result = []
+    person_result.append({'bbox': [50, 50, 50, 100]})
+    # test a single image, with a list of bboxes.
+    pose_results, _ = inference_top_down_pose_model(
+        pose_model,
+        image_name,
+        person_result,
+        format='xywh',
+        dataset_info=dataset_info)
+    # show the results
+    vis_pose_result(
+        pose_model, image_name, pose_results, dataset_info=dataset_info)
+
+    # MPII demo
+    # build the pose model from a config file and a checkpoint file
+    pose_model = init_pose_model(
+        'configs/body/2d_kpt_sview_rgb_img/deeppose/'
+        'mpii/res50_mpii_256x256.py',
+        None,
+        device='cpu')
+    image_name = 'tests/data/mpii/004645041.jpg'
+    dataset_info = DatasetInfo(pose_model.cfg.data['test'].get(
+        'dataset_info', None))
     person_result = []
     person_result.append({'bbox': [50, 50, 50, 100]})
     # test a single image, with a list of bboxes.
@@ -283,3 +308,24 @@ def test_collect_multi_frames():
     _ = collect_multi_frames(video, frame_id, indices, online=True)
 
     _ = collect_multi_frames(video, frame_id, indices, online=False)
+
+
+def test_hand_gesture_demo():
+
+    # build the pose model from a config file and a checkpoint file
+    pose_model = init_pose_model(
+        'configs/hand/gesture_sview_rgbd_vid/mtut/nvgesture/'
+        'i3d_nvgesture_bbox_112x112_fps15.py',
+        None,
+        device='cpu')
+
+    dataset_info = pose_model.cfg.data['test'].get('dataset_info', None)
+    video_files = [
+        'tests/data/nvgesture/sk_color.avi',
+        'tests/data/nvgesture/sk_depth.avi'
+    ]
+    with open('tests/data/nvgesture/bboxes.json', 'r') as f:
+        bbox = next(iter(json.load(f).values()))
+
+    pred_label, _ = inference_gesture_model(pose_model, video_files, bbox,
+                                            dataset_info)
