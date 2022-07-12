@@ -4,6 +4,7 @@ import warnings
 from argparse import ArgumentParser
 
 import cv2
+import mmcv
 
 from mmpose.apis import (get_track_id, inference_bottom_up_pose_model,
                          init_pose_model, vis_pose_tracking_result)
@@ -89,10 +90,8 @@ def main():
     dataset_info = process_dataset_info(dataset_info, pose_model.cfg.channel_cfg.inference_channel)
     pose_model.cfg.data['test']['dataset_info'] = dataset_info
 
-    cap = cv2.VideoCapture(args.video_path)
-    fps = None
-
-    assert cap.isOpened(), f'Faild to load video file {args.video_path}'
+    video = mmcv.VideoReader(args.video_path)
+    assert video.opened, f'Faild to load video file {args.video_path}'
 
     if args.out_video_root == '':
         save_out_video = False
@@ -101,9 +100,8 @@ def main():
         save_out_video = True
 
     if save_out_video:
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        size = (int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
-                int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+        fps = video.fps
+        size = (video.width, video.height)
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         videoWriter = cv2.VideoWriter(
             os.path.join(args.out_video_root,
@@ -131,15 +129,12 @@ def main():
     output_layer_names = None
     next_id = 0
     pose_results = []
-    while (cap.isOpened()):
-        flag, img = cap.read()
-        if not flag:
-            break
+    for cur_frame in mmcv.track_iter_progress(video):
         pose_results_last = pose_results
 
-        pose_results, returned_outputs = inference_bottom_up_pose_model(
+        pose_results, _ = inference_bottom_up_pose_model(
             pose_model,
-            img,
+            cur_frame,
             dataset=dataset,
             dataset_info=dataset_info,
             pose_nms_thr=args.pose_nms_thr,
@@ -162,9 +157,9 @@ def main():
             pose_results = smoother.smooth(pose_results)
 
         # show the results
-        vis_img = vis_pose_tracking_result(
+        vis_frame = vis_pose_tracking_result(
             pose_model,
-            img,
+            cur_frame,
             pose_results,
             radius=args.radius,
             thickness=args.thickness,
@@ -174,15 +169,14 @@ def main():
             show=False)
 
         if args.show:
-            cv2.imshow('Image', vis_img)
+            cv2.imshow('Image', vis_frame)
 
         if save_out_video:
-            videoWriter.write(vis_img)
+            videoWriter.write(vis_frame)
 
         if args.show and cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
-    cap.release()
     if save_out_video:
         videoWriter.release()
     if args.show:
