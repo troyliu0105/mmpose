@@ -9,6 +9,8 @@ from mmpose.models.utils.ops import resize
 
 
 class BasicBlockRepeat2(nn.Module):
+    expansion = 1
+
     def __init__(self, *args, **kwargs):
         super(BasicBlockRepeat2, self).__init__()
         self.block = nn.Sequential(*[BasicBlock(*args, **kwargs) for _ in range(2)])
@@ -18,6 +20,8 @@ class BasicBlockRepeat2(nn.Module):
 
 
 class BasicBlockRepeat3(nn.Module):
+    expansion = 1
+
     def __init__(self, *args, **kwargs):
         super(BasicBlockRepeat3, self).__init__()
         self.block = nn.Sequential(*[BasicBlock(*args, **kwargs) for _ in range(3)])

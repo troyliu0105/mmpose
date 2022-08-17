@@ -1,4 +1,4 @@
-_base_ = ['../../../../_base_/datasets/st_rail_gesture.py']
+_base_ = ['../../../../../_base_/datasets/st_rail_gesture.py']
 log_level = 'INFO'
 load_from = None
 resume_from = None
