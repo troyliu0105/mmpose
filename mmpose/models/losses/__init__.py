@@ -13,6 +13,6 @@ __all__ = [
     'JointsMSELoss', 'JointsOHKMMSELoss', 'HeatmapLoss', 'AELoss',
     'MultiLossFactory', 'MeshLoss', 'GANLoss', 'SmoothL1Loss', 'WingLoss',
     'MPJPELoss', 'MSELoss', 'L1Loss', 'BCELoss', 'BoneLoss',
-    'SemiSupervisionLoss', 'SoftWingLoss', 'AdaptiveWingLoss', 'RLELoss'
+    'SemiSupervisionLoss', 'SoftWingLoss', 'AdaptiveWingLoss', 'RLELoss',
     'DEKRMultiLossFactory'
 ]
