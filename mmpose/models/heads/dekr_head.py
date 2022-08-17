@@ -8,6 +8,24 @@ from mmpose.models.builder import build_loss, HEADS
 from mmpose.models.utils.ops import resize
 
 
+class BasicBlockRepeat2(nn.Module):
+    def __init__(self, *args, **kwargs):
+        super(BasicBlockRepeat2, self).__init__()
+        self.block = nn.Sequential(*[BasicBlock(*args, **kwargs) for _ in range(2)])
+
+    def forward(self, x):
+        return self.block(x)
+
+
+class BasicBlockRepeat3(nn.Module):
+    def __init__(self, *args, **kwargs):
+        super(BasicBlockRepeat3, self).__init__()
+        self.block = nn.Sequential(*[BasicBlock(*args, **kwargs) for _ in range(3)])
+
+    def forward(self, x):
+        return self.block(x)
+
+
 @HEADS.register_module()
 class DEKRHead(nn.Module):
     def __init__(self,
@@ -23,7 +41,9 @@ class DEKRHead(nn.Module):
                  align_corners=False,
                  loss_keypoint=None):
         super().__init__()
-        offset_feature_types = {"AdaptBlock": AdaptBlock, "BasicBlock": BasicBlock}
+        offset_feature_types = {"AdaptBlock": AdaptBlock, "BasicBlock": BasicBlock,
+                                "BasicBlockRepeat2": BasicBlockRepeat2,
+                                "BasicBlockRepeat3": BasicBlockRepeat3}
         assert offset_feature_type in offset_feature_types.keys()
         self.in_channels = in_channels
         self.loss = build_loss(loss_keypoint)
