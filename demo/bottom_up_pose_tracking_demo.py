@@ -150,7 +150,7 @@ def main():
             tracking_thr=args.tracking_thr,
             use_one_euro=args.euro,
             fps=fps,
-            sigmas=dataset_info.sigmas)
+            sigmas=getattr(dataset_info, 'sigmas', None))
 
         # post-process the pose results with smoother
         if smoother:

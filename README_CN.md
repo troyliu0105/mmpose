@@ -64,7 +64,7 @@ https://user-images.githubusercontent.com/15977946/124654387-0fd3c500-ded1-11eb-
 
 - **支持多样的数据集**
 
-  MMPose 支持了很多主流数据集的准备和构建，如 COCO、 MPII 等。 具体请参考 [数据集准备](docs/en/data_preparation.md)。
+  MMPose 支持了很多主流数据集的准备和构建，如 COCO、AIC、MPII、MPII-TRB、OCHuman 等。 具体请参考 [数据集准备](docs/en/data_preparation.md)。
 
 - **模块化设计**
 
@@ -92,8 +92,8 @@ MMPose 依赖 [PyTorch](https://pytorch.org/) 和 [MMCV](https://github.com/open
 更详细的安装指南请参考 [install.md](docs/zh_cn/install.md)。
 
 ```shell
-conda create -n open-mmlab python=3.8 pytorch=1.10 cudatoolkit=11.3 torchvision -c pytorch -y
-conda activate open-mmlab
+conda create -n openmmlab python=3.8 pytorch=1.10 cudatoolkit=11.3 torchvision -c pytorch -y
+conda activate openmmlab
 pip3 install openmim
 mim install mmcv-full
 git clone https://github.com/open-mmlab/mmpose.git
@@ -118,7 +118,7 @@ MMPose 也提供了其他更详细的教程:
 ## 模型库
 
 各个模型的结果和设置都可以在对应的 config（配置）目录下的 *README.md* 中查看。
-整体的概况也可也在 [模型库](https://mmpose.readthedocs.io/zh_CN/latest/recognition_models.html) 页面中查看。
+整体的概况也可也在 [模型库](https://mmpose.readthedocs.io/zh_CN/latest/modelzoo.html) 页面中查看。
 
 <details open>
 <summary><b>支持的算法</b></summary>
@@ -241,7 +241,7 @@ MMPose 在主流关键点检测基准 COCO 上达到了优越的模型精度和�
 
 ## 常见问题
 
-请参考 [FAQ](docs/en/faq.md) 了解其他用户的常见问题。
+请参考 [FAQ](docs/zh_cn/faq.md) 了解其他用户的常见问题。
 
 ## 参与贡献
 

@@ -1,5 +1,6 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import warnings
+from functools import partial
 
 import numpy as np
 
@@ -83,6 +84,7 @@ def _track_by_oks(res, results_last, thr, sigmas=None):
         results_last (list[dict]): The pose & track_id info of the
             last frame (pose_result, track_id).
         thr (float): The threshold for oks tracking.
+        sigmas (np.ndarray): standard deviation of keypoint labelling.
 
     Returns:
         int: The track id for the new person instance.
@@ -189,6 +191,9 @@ def get_track_id(results,
         use_one_euro (bool): Option to use one-euro-filter. default: False.
         fps (optional): Parameters that d_cutoff
             when one-euro-filter is used as a video input
+        sigmas (np.ndarray): Standard deviation of keypoint labelling. It is
+            necessary for oks_iou tracking (`use_oks==True`). It will be use
+            sigmas of COCO as default if it is set to None. Default is None.
 
     Returns:
         tuple:
@@ -211,7 +216,7 @@ def get_track_id(results,
     results = _get_area(results)
 
     if use_oks:
-        _track = _track_by_oks
+        _track = partial(_track_by_oks, sigmas=sigmas)
     else:
         _track = _track_by_iou
 
