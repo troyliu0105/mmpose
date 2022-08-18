@@ -189,7 +189,7 @@ data = dict(
             ann_file=f'{data_root}/rm_beijing/rm_beijing.20211123.val.json',
             img_prefix=f'{data_root}/rm_beijing/images/',
             data_cfg=data_cfg,
-            pipeline=val_pipeline,
+            pipeline=train_pipeline,
             dataset_info={{_base_.dataset_info}})
     ],
     val=dict(
@@ -197,7 +197,7 @@ data = dict(
         ann_file=f'{data_root}/rm_shuohuang/9pts.val.json',
         img_prefix=f'{data_root}/rm_shuohuang/images/',
         data_cfg=data_cfg,
-        pipeline=test_pipeline,
+        pipeline=val_pipeline,
         dataset_info={{_base_.dataset_info}}),
     test=dict(
         type='BottomUpSTGestureDataset',
