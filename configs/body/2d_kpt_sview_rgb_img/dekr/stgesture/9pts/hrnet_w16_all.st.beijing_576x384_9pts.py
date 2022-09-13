@@ -31,12 +31,12 @@ channel_cfg = dict(
     num_output_channels=13,
     dataset_joints=13,
     dataset_channel=[
-        # [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
-        [0, 1, 2, 3, 4, 5, 6, 7, 8],
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+        # [0, 1, 2, 3, 4, 5, 6, 7, 8],
     ],
     # inference_channel=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
-    # inference_channel=[0, 1, 2, 3, 4, 8, 5, 6, 7]
-    inference_channel=[0, 1, 2, 3, 4, 5, 6, 7, 8]
+    inference_channel=[0, 1, 2, 3, 4, 8, 5, 6, 7]
+    # inference_channel=[0, 1, 2, 3, 4, 5, 6, 7, 8]
 )
 
 data_cfg = dict(

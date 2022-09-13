@@ -204,9 +204,15 @@ class HRModule(nn.Module):
             y = 0
             for j in range(self.num_branches):
                 if i == j:
-                    y += x[j]
+                    if y is 0:
+                        y = x[j]
+                    else:
+                        y += x[j]
                 else:
-                    y += self.fuse_layers[i][j](x[j])
+                    if y is 0:
+                        y = self.fuse_layers[i][j](x[j])
+                    else:
+                        y += self.fuse_layers[i][j](x[j])
             x_fuse.append(self.relu(y))
         return x_fuse
 
