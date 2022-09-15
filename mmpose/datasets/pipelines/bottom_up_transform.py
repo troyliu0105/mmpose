@@ -737,7 +737,7 @@ class BottomUpGenerateDEKRTargets:
         hms_list = [hms, ignored_hms]
         for p in joints:
             for idx, pt in enumerate(p):
-                if idx < 17:
+                if idx < num_joints:
                     sigma = self.sigma
                 else:
                     sigma = self.center_sigma
