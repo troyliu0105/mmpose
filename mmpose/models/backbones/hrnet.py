@@ -207,12 +207,12 @@ class HRModule(nn.Module):
                     if y is None:
                         y = x[j]
                     else:
-                        y += x[j]
+                        y = y + x[j]
                 else:
                     if y is None:
                         y = self.fuse_layers[i][j](x[j])
                     else:
-                        y += self.fuse_layers[i][j](x[j])
+                        y = y + self.fuse_layers[i][j](x[j])
             x_fuse.append(self.relu(y))
         return x_fuse
 
