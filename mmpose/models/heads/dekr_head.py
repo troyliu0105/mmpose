@@ -213,22 +213,16 @@ class DEKRHead(nn.Module):
 
         heatmap = self.heatmap_head(heatmap_feature)
         final_offset = []
-        if torch.onnx.is_in_onnx_export():
-            # center_heatmap = heatmap[:, -1:, :, :]
-            # center_heatmap_pooled = F.max_pool2d(center_heatmap, 3, 1, 1)
-            # heatmap = torch.concat([heatmap, center_heatmap_pooled], dim=1)
-            offset_feature = torch.split(offset_feature, self.offset_pre_kpt, dim=1)
-            for j in range(self.num_joints):
-                offset = offset_feature[j]
-                offset = self.offset_feature_layers[j](offset)
-                offset = self.offset_final_layers[j](offset)
-                final_offset.append(offset)
-        else:
-            for j in range(self.num_joints):
-                offset = offset_feature[:, j * self.offset_pre_kpt:(j + 1) * self.offset_pre_kpt]
-                offset = self.offset_feature_layers[j](offset)
-                offset = self.offset_final_layers[j](offset)
-                final_offset.append(offset)
+        # if torch.onnx.is_in_onnx_export():
+        #     center_heatmap = heatmap[:, -1:, :, :]
+        #     center_heatmap_pooled = F.max_pool2d(center_heatmap, 3, 1, 1)
+        #     heatmap = torch.concat([heatmap, center_heatmap_pooled], dim=1)
+        offset_feature = torch.split(offset_feature, self.offset_pre_kpt, dim=1)
+        for j in range(self.num_joints):
+            offset = offset_feature[j]
+            offset = self.offset_feature_layers[j](offset)
+            offset = self.offset_final_layers[j](offset)
+            final_offset.append(offset)
         offset = torch.cat(final_offset, dim=1)
         return heatmap, offset
 

@@ -24,19 +24,17 @@ log_config = dict(
     interval=50,
     hooks=[
         dict(type='TextLoggerHook'),
-        # dict(type='TensorboardLoggerHook')
+        dict(type='TensorboardLoggerHook')
     ])
 
 channel_cfg = dict(
     num_output_channels=13,
     dataset_joints=13,
     dataset_channel=[
-        # [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
-        [0, 1, 2, 3, 4, 8, 5, 6, 7]
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
     ],
     # inference_channel=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
     inference_channel=[0, 1, 2, 3, 4, 8, 5, 6, 7])
-    # inference_channel=[0, 1, 2, 3, 4, 8, 5, 6, 7, 11, 9])
 
 data_cfg = dict(
     image_size=[576, 384],
@@ -53,12 +51,41 @@ data_cfg = dict(
 # model settings
 model = dict(
     type='DEKR',
-    backbone=dict(type='RepVGG', arch="a1", out_indices=[1, 2, 3]),
+    backbone=dict(
+        type='HRNet',
+        in_channels=3,
+        extra=dict(
+            stage1=dict(
+                num_modules=1,
+                num_branches=1,
+                block='BOTTLENECK',
+                num_blocks=(4, ),
+                num_channels=(32, )),
+            stage2=dict(
+                num_modules=1,
+                num_branches=2,
+                block='BASIC',
+                num_blocks=(4, 4),
+                num_channels=(16, 32)),
+            stage3=dict(
+                num_modules=4,
+                num_branches=3,
+                block='BASIC',
+                num_blocks=(4, 4, 4),
+                num_channels=(16, 32, 64)),
+            stage4=dict(
+                num_modules=3,
+                num_branches=4,
+                block='BASIC',
+                num_blocks=(4, 4, 4, 4),
+                num_channels=(16, 32, 64, 128),
+                multiscale_output=True)),
+    ),
     keypoint_head=dict(
         type='DEKRHead',
-        in_channels=[64, 128, 256],
-        in_index=[0, 1, 2],
-        num_joints=len(channel_cfg['dataset_channel'][0]),
+        in_channels=[16, 32, 64, 128],
+        in_index=[0, 1, 2, 3],
+        num_joints=channel_cfg['num_output_channels'],
         transition_head_channels=32,
         offset_pre_kpt=15,
         offset_pre_blocks=1,
@@ -67,15 +94,15 @@ model = dict(
         loss_keypoint=dict(
             type='DEKRMultiLossFactory',
             supervise_empty=False,
-            num_joints=len(channel_cfg['dataset_channel'][0]),
+            num_joints=channel_cfg['num_output_channels'],
             num_stages=1,
             bg_weight=0.1,
-            heatmaps_loss_factor=1.0,
+            heatmaps_loss_factor=1.5,
             offset_loss_factor=0.03,
         )),
     train_cfg=dict(),
     test_cfg=dict(
-        num_joints=len(channel_cfg['inference_channel']),
+        num_joints=channel_cfg['dataset_joints'],
         max_num_people=30,
         scale_factor=[1],
         with_heatmaps=[True],
@@ -98,16 +125,16 @@ train_pipeline = [
         scale_type='short',
         trans_factor=40),
     dict(type='BottomUpRandomFlip', flip_prob=0.5),
-    dict(
-        type='PhotometricDistortion',
-        brightness_delta=32,
-        contrast_range=(0.8, 1.2),
-        saturation_range=(0.8, 1.2),
-        hue_delta=18),
+    dict(type='PhotometricDistortion',
+         brightness_delta=32,
+         contrast_range=(0.8, 1.2),
+         saturation_range=(0.8, 1.2),
+         hue_delta=18),
     dict(type='ToTensor'),
     dict(
         type='BottomUpGenerateDEKRTargets',
         sigma=2,
+        center_sigma=2
     ),
     dict(
         type='Collect',
@@ -118,9 +145,11 @@ train_pipeline = [
 val_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='BottomUpGetImgSize', test_scale_factor=[1]),
-    dict(type='BottomUpResizeAlign', transforms=[
-        dict(type='ToTensor'),
-    ]),
+    dict(
+        type='BottomUpResizeAlign',
+        transforms=[
+            dict(type='ToTensor'),
+        ]),
     dict(
         type='Collect',
         keys=['img'],

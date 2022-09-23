@@ -64,13 +64,14 @@ def pytorch2onnx(model,
 
     one_img = torch.randn(input_shape)
 
-    register_extra_symbolics(opset_version)
+    if opset_version == 11:
+        register_extra_symbolics(opset_version)
     torch.onnx.export(
         model,
         one_img,
         output_file,
         export_params=True,
-        keep_initializers_as_inputs=True,
+        keep_initializers_as_inputs=False,
         verbose=show,
         opset_version=opset_version)
 
@@ -150,7 +151,7 @@ def network_to_half(model):
 if __name__ == '__main__':
     args = parse_args()
 
-    assert args.opset_version == 11, 'MMPose only supports opset 11 now'
+    # assert args.opset_version == 11, 'MMPose only supports opset 11 now'
 
     # Following strings of text style are from colorama package
     bright_style, reset_style = '\x1b[1m', '\x1b[0m'

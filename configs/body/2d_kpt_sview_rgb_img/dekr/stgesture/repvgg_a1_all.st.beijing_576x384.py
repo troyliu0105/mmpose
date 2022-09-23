@@ -149,6 +149,14 @@ data = dict(
         dict(
             type='BottomUpSTGestureDataset',
             ann_file=
+            f'{data_root}/rails/rm_beijing/rm_beijing.20211123.val.json',
+            img_prefix=f'{data_root}/rails/rm_beijing/images/',
+            data_cfg=data_cfg,
+            pipeline=train_pipeline,
+            dataset_info={{_base_.dataset_info}}),
+        dict(
+            type='BottomUpSTGestureDataset',
+            ann_file=
             f'{data_root}/rails/rm_dalian/rm_dalian.20211123.train.json',
             img_prefix=f'{data_root}/rails/rm_dalian/images/',
             data_cfg=data_cfg,
@@ -157,7 +165,15 @@ data = dict(
         dict(
             type='BottomUpSTGestureDataset',
             ann_file=
-            f'{data_root}/rails/rm_shuohuang/rm_shuohuang.20211223.total.train.json',
+            f'{data_root}/rails/rm_dalian/rm_dalian.20211123.val.json',
+            img_prefix=f'{data_root}/rails/rm_dalian/images/',
+            data_cfg=data_cfg,
+            pipeline=train_pipeline,
+            dataset_info={{_base_.dataset_info}}),
+        dict(
+            type='BottomUpSTGestureDataset',
+            ann_file=
+            f'{data_root}/rails/rm_shuohuang/11pts.train.json',
             img_prefix=f'{data_root}/rails/rm_shuohuang/images/',
             data_cfg=data_cfg,
             pipeline=train_pipeline,
@@ -165,16 +181,32 @@ data = dict(
         dict(
             type='BottomUpSTGestureDataset',
             ann_file=
-            f'{data_root}/coco/annotations/stgesture_person_keypoints_val2017.json',
-            img_prefix=f'{data_root}/coco/val2017/',
+            f'{data_root}/rails/rm_shuohuang/11pts.val.json',
+            img_prefix=f'{data_root}/rails/rm_shuohuang/images/',
             data_cfg=data_cfg,
             pipeline=train_pipeline,
-            dataset_info={{_base_.dataset_info}})
+            dataset_info={{_base_.dataset_info}}),
+        dict(
+            type='BottomUpSTGestureDataset',
+            ann_file=
+            f'{data_root}/rails/rm_shuohuang/9pts.train.json',
+            img_prefix=f'{data_root}/rails/rm_shuohuang/images/',
+            data_cfg=data_cfg,
+            pipeline=train_pipeline,
+            dataset_info={{_base_.dataset_info}}),
+        # dict(
+        #     type='BottomUpSTGestureDataset',
+        #     ann_file=
+        #     f'{data_root}/coco/annotations/stgesture_person_keypoints_train2017.json',
+        #     img_prefix=f'{data_root}/coco/train2017/',
+        #     data_cfg=data_cfg,
+        #     pipeline=train_pipeline,
+        #     dataset_info={{_base_.dataset_info}})
     ],
     val=dict(
         type='BottomUpSTGestureDataset',
         ann_file=
-        f'{data_root}/rails/rm_shuohuang/rm_shuohuang.20211223.total.val.json',
+        f'{data_root}/rails/rm_shuohuang/9pts.val.json',
         img_prefix=f'{data_root}/rails/rm_shuohuang/images/',
         data_cfg=data_cfg,
         pipeline=val_pipeline,
@@ -182,7 +214,7 @@ data = dict(
     test=dict(
         type='BottomUpSTGestureDataset',
         ann_file=
-        f'{data_root}/rails/rm_shuohuang/rm_shuohuang.20211223.total.val.json',
+        f'{data_root}/rails/rm_shuohuang/9pts.val.json',
         img_prefix=f'{data_root}/rails/rm_shuohuang/images/',
         data_cfg=data_cfg,
         pipeline=test_pipeline,
