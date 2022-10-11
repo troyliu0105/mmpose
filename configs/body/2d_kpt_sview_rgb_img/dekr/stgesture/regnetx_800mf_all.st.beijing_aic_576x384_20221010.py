@@ -53,10 +53,10 @@ data_cfg = dict(
 # model settings
 model = dict(
     type='DEKR',
-    backbone=dict(type='RegNet', arch="regnetx_800mf", out_indices=[1, 2, 3]),
+    backbone=dict(type='RegNet', arch="regnetx_800mf", out_indices=[0, 1, 2]),
     keypoint_head=dict(
         type='DEKRHead',
-        in_channels=[128, 288, 672],
+        in_channels=[64, 128, 288],
         # in_channels=[128, 256],
         in_index=[0, 1, 2],
         # in_index=[1, 2],
