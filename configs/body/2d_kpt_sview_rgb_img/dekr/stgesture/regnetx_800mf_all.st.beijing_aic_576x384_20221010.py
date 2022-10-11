@@ -197,13 +197,13 @@ data = dict(
             data_cfg=data_cfg,
             pipeline=train_pipeline,
             dataset_info={{_base_.dataset_info}}),
-        dict(
-            type='BottomUpSTGestureDataset',
-            ann_file=f'{data_root}/aic/annotations/st_gesture_aic_train.json',
-            img_prefix=f'{data_root}/aic/ai_challenger_keypoint_train_20170909/keypoint_train_images_20170902',
-            data_cfg=data_cfg,
-            pipeline=train_pipeline,
-            dataset_info={{_base_.dataset_info}})
+        # dict(
+        #     type='BottomUpSTGestureDataset',
+        #     ann_file=f'{data_root}/aic/annotations/st_gesture_aic_train.json',
+        #     img_prefix=f'{data_root}/aic/ai_challenger_keypoint_train_20170909/keypoint_train_images_20170902',
+        #     data_cfg=data_cfg,
+        #     pipeline=train_pipeline,
+        #     dataset_info={{_base_.dataset_info}})
     ],
     val=dict(
         type='BottomUpSTGestureDataset',
@@ -221,4 +221,18 @@ data = dict(
         data_cfg=data_cfg,
         pipeline=test_pipeline,
         dataset_info={{_base_.dataset_info}}),
+    # val=dict(
+    #     type='BottomUpSTGestureDataset',
+    #     ann_file=f'{data_root}/aic/annotations/st_gesture_aic_val.json',
+    #     img_prefix=f'{data_root}/aic/ai_challenger_keypoint_validation_20170911/keypoint_validation_images_20170911',
+    #     data_cfg=data_cfg,
+    #     pipeline=val_pipeline,
+    #     dataset_info={{_base_.dataset_info}}),
+    # test=dict(
+    #     type='BottomUpSTGestureDataset',
+    #     ann_file=f'{data_root}/aic/annotations/st_gesture_aic_val.json',
+    #     img_prefix=f'{data_root}/aic/ai_challenger_keypoint_validation_20170911/keypoint_validation_images_20170911',
+    #     data_cfg=data_cfg,
+    #     pipeline=val_pipeline,
+    #     dataset_info={{_base_.dataset_info}}),
 )
