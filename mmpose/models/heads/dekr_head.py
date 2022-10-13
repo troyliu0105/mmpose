@@ -164,16 +164,19 @@ class DEKRHead(nn.Module):
 
         if self.input_transform == 'resize_concat':
             inputs = [inputs[i] for i in self.in_index]
-            dst_size = inputs[0].shape[2]
+            # 避免不必要的 resize
+            dst_ipt = inputs[0]
+            rest_ipts = inputs[1:]
+            dst_size = dst_ipt.shape[2]
             upsampled_inputs = [
                 resize(
                     input=x,
                     # size=inputs[0].shape[2:],
                     scale_factor=int(dst_size / x.shape[2]),
                     mode='bilinear',
-                    align_corners=self.align_corners) for x in inputs
+                    align_corners=self.align_corners) for x in rest_ipts
             ]
-            inputs = torch.cat(upsampled_inputs, dim=1)
+            inputs = torch.cat([dst_ipt, *upsampled_inputs], dim=1)
         elif self.input_transform == 'multiple_select':
             inputs = [inputs[i] for i in self.in_index]
         else:
