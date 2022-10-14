@@ -1,6 +1,6 @@
 _base_ = [
     '../../../../_base_/default_runtime.py',
-    '../../../../_base_/datasets/crowdpose.py'
+    '../../../../_base_/datasets/coco.py'
 ]
 checkpoint_config = dict(interval=20)
 evaluation = dict(interval=20, metric='mAP', save_best='AP')
@@ -11,36 +11,36 @@ optimizer = dict(
 )
 optimizer_config = dict(grad_clip=None)
 # learning policy
-lr_config = dict(
-    policy='step',
-    warmup='linear',
-    warmup_iters=500,
-    warmup_ratio=0.001,
-    step=[200, 260])
-total_epochs = 300
+lr_config = dict(policy='step', step=[90, 120])
+total_epochs = 140
 channel_cfg = dict(
-    num_output_channels=14,
-    dataset_joints=14,
+    dataset_joints=17,
     dataset_channel=[
-        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
     ],
-    inference_channel=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13])
+    inference_channel=[
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
+    ])
 
 data_cfg = dict(
     image_size=512,
     base_size=256,
     base_sigma=2,
-    heatmap_size=[128, 256],
+    heatmap_size=[128],
     num_joints=channel_cfg['dataset_joints'],
     dataset_channel=channel_cfg['dataset_channel'],
     inference_channel=channel_cfg['inference_channel'],
-    num_scales=2,
+    num_scales=1,
     scale_aware_sigma=False,
+    with_bbox=True,
+    use_nms=True,
+    soft_nms=False,
+    oks_thr=0.8,
 )
 
 # model settings
 model = dict(
-    type='DisentangledKeypointRegressor',
+    type='CID',
     pretrained='https://download.openmmlab.com/mmpose/'
     'pretrain_models/hrnet_w32-36af842e.pth',
     backbone=dict(
@@ -74,41 +74,22 @@ model = dict(
                 multiscale_output=True)),
     ),
     keypoint_head=dict(
-        type='DEKRHead',
-        in_channels=(32, 64, 128, 256),
-        in_index=(0, 1, 2, 3),
-        num_heatmap_filters=32,
-        num_joints=channel_cfg['dataset_joints'],
-        input_transform='resize_concat',
-        heatmap_loss=dict(
-            type='JointsMSELoss',
-            use_target_weight=True,
-            loss_weight=1.0,
-        ),
-        offset_loss=dict(
-            type='SoftWeightSmoothL1Loss',
-            use_target_weight=True,
-            supervise_empty=False,
-            loss_weight=0.004,
-            beta=1 / 9.0,
-        )),
+        type='CIDHead',
+        in_channels=480,
+        gfd_channels=32,
+        num_joints=17,
+        multi_hm_loss_factor=1.0,
+        single_hm_loss_factor=4.0,
+        contrastive_loss_factor=1.0,
+        max_train_instances=200,
+        prior_prob=0.01),
     train_cfg=dict(),
     test_cfg=dict(
         num_joints=channel_cfg['dataset_joints'],
+        flip_test=True,
         max_num_people=30,
-        project2image=False,
-        align_corners=False,
-        max_pool_kernel=5,
-        use_nms=True,
-        nms_dist_thr=0.05,
-        nms_joints_thr=7,
-        keypoint_threshold=0.01,
-        rescore_cfg=dict(
-            in_channels=59,
-            norm_indexes=(0, 1),
-            pretrained='https://download.openmmlab.com/mmpose/'
-            'pretrain_models/kpt_rescore_crowdpose-300c7efe.pth'),
-        flip_test=True))
+        detection_threshold=0.01,
+        center_pool_kernel=3))
 
 train_pipeline = [
     dict(type='LoadImageFromFile'),
@@ -124,20 +105,16 @@ train_pipeline = [
         type='NormalizeTensor',
         mean=[0.485, 0.456, 0.406],
         std=[0.229, 0.224, 0.225]),
-    dict(type='GetKeypointCenterArea'),
     dict(
-        type='BottomUpGenerateHeatmapTarget',
-        sigma=(2, 4),
-        gen_center_heatmap=True,
-        bg_weight=0.1,
-    ),
-    dict(
-        type='BottomUpGenerateOffsetTarget',
-        radius=4,
+        type='CIDGenerateTarget',
+        max_num_people=30,
     ),
     dict(
         type='Collect',
-        keys=['img', 'heatmaps', 'masks', 'offsets', 'offset_weights'],
+        keys=[
+            'img', 'multi_heatmap', 'multi_mask', 'instance_coord',
+            'instance_heatmap', 'instance_mask', 'instance_valid'
+        ],
         meta_keys=[]),
 ]
 
@@ -158,37 +135,36 @@ val_pipeline = [
         keys=['img'],
         meta_keys=[
             'image_file', 'aug_data', 'test_scale_factor', 'base_size',
-            'center', 'scale', 'flip_index', 'num_joints', 'skeleton',
-            'image_size', 'heatmap_size'
+            'center', 'scale', 'flip_index'
         ]),
 ]
 
 test_pipeline = val_pipeline
 
-data_root = 'data/crowdpose'
+data_root = 'data/coco'
 data = dict(
-    workers_per_gpu=4,
-    train_dataloader=dict(samples_per_gpu=10),
+    workers_per_gpu=2,
+    train_dataloader=dict(samples_per_gpu=20),
     val_dataloader=dict(samples_per_gpu=1),
     test_dataloader=dict(samples_per_gpu=1),
     train=dict(
-        type='BottomUpCrowdPoseDataset',
-        ann_file=f'{data_root}/annotations/mmpose_crowdpose_trainval.json',
-        img_prefix=f'{data_root}/images/',
+        type='BottomUpCocoDataset',
+        ann_file=f'{data_root}/annotations/person_keypoints_train2017.json',
+        img_prefix=f'{data_root}/train2017/',
         data_cfg=data_cfg,
         pipeline=train_pipeline,
         dataset_info={{_base_.dataset_info}}),
     val=dict(
-        type='BottomUpCrowdPoseDataset',
-        ann_file=f'{data_root}/annotations/mmpose_crowdpose_test.json',
-        img_prefix=f'{data_root}/images/',
+        type='BottomUpCocoDataset',
+        ann_file=f'{data_root}/annotations/person_keypoints_val2017.json',
+        img_prefix=f'{data_root}/val2017/',
         data_cfg=data_cfg,
         pipeline=val_pipeline,
         dataset_info={{_base_.dataset_info}}),
     test=dict(
-        type='BottomUpCrowdPoseDataset',
-        ann_file=f'{data_root}/annotations/mmpose_crowdpose_test.json',
-        img_prefix=f'{data_root}/images/',
+        type='BottomUpCocoDataset',
+        ann_file=f'{data_root}/annotations/person_keypoints_val2017.json',
+        img_prefix=f'{data_root}/val2017/',
         data_cfg=data_cfg,
         pipeline=test_pipeline,
         dataset_info={{_base_.dataset_info}}),
