@@ -15,12 +15,13 @@ class JointsMSELoss(nn.Module):
         loss_weight (float): Weight of the loss. Default: 1.0.
     """
 
-    def __init__(self, use_target_weight=False, loss_weight=1.):
+    def __init__(self, use_target_weight=False, loss_weight=1., supervise_empty=True):
         super().__init__()
         self.use_target_weight = use_target_weight
-        reduction = 'none' if use_target_weight else 'mean'
-        self.criterion = nn.MSELoss(reduction=reduction)
+        # reduction = 'none' if use_target_weight else 'mean'
+        self.criterion = nn.MSELoss(reduction='none')
         self.loss_weight = loss_weight
+        self.supervise_empty = supervise_empty
 
     def forward(self, output, target, target_weight):
         """Forward function."""
@@ -39,9 +40,14 @@ class JointsMSELoss(nn.Module):
             if self.use_target_weight:
                 loss_joint = self.criterion(heatmap_pred, heatmap_gt)
                 loss_joint = loss_joint * target_weight[:, idx]
-                loss += loss_joint.mean()
+                # loss += loss_joint.mean()
             else:
-                loss += self.criterion(heatmap_pred, heatmap_gt)
+                # loss += self.criterion(heatmap_pred, heatmap_gt)
+                loss_joint = self.criterion(heatmap_pred, heatmap_gt)
+            if not self.supervise_empty:
+                empty_mask = (heatmap_gt.sum(-1, keepdim=True) > 0).float()
+                loss_joint = loss_joint * empty_mask
+            loss += loss_joint.mean()
 
         return loss / num_joints * self.loss_weight
 

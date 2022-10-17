@@ -175,7 +175,7 @@ class DeconvHead(nn.Module):
         Returns:
             Tensor: The transformed inputs
         """
-        if not isinstance(inputs, list):
+        if not isinstance(inputs, (list, tuple)):
             return inputs
 
         if self.input_transform == 'resize_concat':
