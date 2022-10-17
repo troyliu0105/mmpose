@@ -113,12 +113,12 @@ model = dict(
         scale_factor=[1],
         project2image=False,
         align_corners=False,
-        max_pool_kernel=5,
+        max_pool_kernel=3,
         use_nms=True,
         nms_dist_thr=0.05,
         nms_joints_thr=5,
         keypoint_threshold=0.01,
-        flip_test=True
+        flip_test=False
     ))
 
 train_pipeline = [
