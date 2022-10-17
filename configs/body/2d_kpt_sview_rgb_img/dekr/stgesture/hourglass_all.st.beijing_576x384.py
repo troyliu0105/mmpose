@@ -35,10 +35,10 @@ channel_cfg = dict(
     inference_channel=[0, 1, 2, 3, 4, 8, 5, 6, 7])
 
 data_cfg = dict(
-    image_size=[576, 384],
-    base_size=[288, 192],
+    image_size=512,
+    base_size=256,
     base_sigma=2,
-    heatmap_size=[[144, 96]],
+    heatmap_size=[128],
     num_joints=channel_cfg['dataset_joints'],
     dataset_channel=channel_cfg['dataset_channel'],
     inference_channel=channel_cfg['inference_channel'],
@@ -48,7 +48,7 @@ data_cfg = dict(
 
 # model settings
 model = dict(
-    type='DEKR',
+    type='DisentangledKeypointRegressor',
     backbone=dict(
         type='HourglassNet',
         num_stacks=1,
@@ -61,36 +61,39 @@ model = dict(
         type='DEKRHead',
         in_channels=[256],
         in_index=[0],
-        num_joints=channel_cfg['num_output_channels'],
-        transition_head_channels=32,
-        offset_pre_kpt=15,
-        offset_pre_blocks=1,
-        offset_feature_type="BasicBlock",
+        num_heatmap_filters=32,
+        num_joints=len(channel_cfg['dataset_channel'][0]),
+        num_offset_filters_per_joint=15,
+        num_offset_filters_layers=1,
+        offset_layer_type="BasicBlock",
         input_transform="resize_concat",
-        loss_keypoint=dict(
-            type='DEKRMultiLossFactory',
+        heatmap_loss=dict(
+            type='JointsMSELoss',
+            use_target_weight=True,
             supervise_empty=False,
-            num_joints=channel_cfg['num_output_channels'],
-            num_stages=1,
-            bg_weight=0.1,
-            heatmaps_loss_factor=1.0,
-            offset_loss_factor=0.05,
+            loss_weight=1.0,
+        ),
+        offset_loss=dict(
+            type='SoftWeightSmoothL1Loss',
+            use_target_weight=True,
+            supervise_empty=False,
+            loss_weight=0.002,
+            beta=1 / 9.0,
         )),
     train_cfg=dict(),
     test_cfg=dict(
-        num_joints=channel_cfg['dataset_joints'],
+        num_joints=len(channel_cfg['inference_channel']),
         max_num_people=30,
         scale_factor=[1],
-        with_heatmaps=[True],
         project2image=False,
         align_corners=False,
-        detection_threshold=0.2,
-        nms_kernel=5,
-        nms_padding=2,
-        ignore_too_much=False,
-        adjust=True,
-        refine=True,
-        flip_test=False))
+        max_pool_kernel=5,
+        use_nms=True,
+        nms_dist_thr=0.05,
+        nms_joints_thr=5,
+        keypoint_threshold=0.01,
+        flip_test=True
+    ))
 
 train_pipeline = [
     dict(type='LoadImageFromFile'),
@@ -108,13 +111,20 @@ train_pipeline = [
         saturation_range=(0.8, 1.2),
         hue_delta=18),
     dict(type='ToTensor'),
+    dict(type='GetKeypointCenterArea'),
     dict(
-        type='BottomUpGenerateDEKRTargets',
-        sigma=2,
+        type='BottomUpGenerateHeatmapTarget',
+        sigma=(2, 4),
+        gen_center_heatmap=True,
+        bg_weight=0.1,
+    ),
+    dict(
+        type='BottomUpGenerateOffsetTarget',
+        radius=4,
     ),
     dict(
         type='Collect',
-        keys=['img', 'offset', 'offset_w', 'target', 'mask'],
+        keys=['img', 'heatmaps', 'masks', 'offsets', 'offset_weights'],
         meta_keys=[]),
 ]
 
@@ -129,7 +139,8 @@ val_pipeline = [
         keys=['img'],
         meta_keys=[
             'image_file', 'aug_data', 'test_scale_factor', 'base_size',
-            'center', 'scale', 'flip_index'
+            'center', 'scale', 'flip_index', 'num_joints', 'skeleton',
+            'image_size', 'heatmap_size'
         ]),
 ]
 
