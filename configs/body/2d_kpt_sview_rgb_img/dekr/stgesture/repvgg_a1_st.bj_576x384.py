@@ -1,13 +1,14 @@
 _base_ = [
-    '../../../../../_base_/default_runtime.py',
-    '../../../../../_base_/datasets/st_rail_gesture.py'
+    '../../../../_base_/default_runtime.py',
+    '../../../../_base_/datasets/st_rail_gesture.py'
 ]
+
 checkpoint_config = dict(interval=10)
 evaluation = dict(interval=10, metric='mAP', save_best='AP')
 
 optimizer = dict(
     type='Adam',
-    lr=0.0015,
+    lr=0.001,
 )
 optimizer_config = dict(grad_clip=None)
 # learning policy
@@ -16,13 +17,14 @@ lr_config = dict(
     warmup='linear',
     warmup_iters=500,
     warmup_ratio=0.001,
-    step=[70, 90])
-total_epochs = 110
+    step=[90, 120])
+total_epochs = 140
+
 log_config = dict(
     interval=50,
     hooks=[
         dict(type='TextLoggerHook'),
-        # dict(type='TensorboardLoggerHook')
+        dict(type='TensorboardLoggerHook')
     ])
 
 channel_cfg = dict(
@@ -30,15 +32,17 @@ channel_cfg = dict(
     dataset_joints=13,
     dataset_channel=[
         [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+        # [0, 1, 2, 3, 4, 8, 5, 6, 7]
     ],
     inference_channel=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
-# inference_channel=[11, 0, 1, 2, 3, 4, 8, 5, 6, 7, 9])
+    # inference_channel=[0, 1, 2, 3, 4, 8, 5, 6, 7])
+    # inference_channel=[0, 1, 2, 3, 4, 8, 5, 6, 7, 11, 9])
 
 data_cfg = dict(
-    image_size=512,
-    base_size=256,
+    image_size=[576, 384],
+    base_size=[288, 192],
     base_sigma=2,
-    heatmap_size=[128],
+    heatmap_size=[[144, 96]],
     num_joints=channel_cfg['dataset_joints'],
     dataset_channel=channel_cfg['dataset_channel'],
     inference_channel=channel_cfg['inference_channel'],
@@ -49,40 +53,11 @@ data_cfg = dict(
 # model settings
 model = dict(
     type='DisentangledKeypointRegressor',
-    backbone=dict(
-        type='HRNet',
-        in_channels=3,
-        extra=dict(
-            stage1=dict(
-                num_modules=1,
-                num_branches=1,
-                block='BOTTLENECK',
-                num_blocks=(4,),
-                num_channels=(32,)),
-            stage2=dict(
-                num_modules=1,
-                num_branches=2,
-                block='BASIC',
-                num_blocks=(4, 4),
-                num_channels=(16, 32)),
-            stage3=dict(
-                num_modules=4,
-                num_branches=3,
-                block='BASIC',
-                num_blocks=(4, 4, 4),
-                num_channels=(16, 32, 64)),
-            stage4=dict(
-                num_modules=3,
-                num_branches=4,
-                block='BASIC',
-                num_blocks=(4, 4, 4, 4),
-                num_channels=(16, 32, 64, 128),
-                multiscale_output=True)),
-    ),
+    backbone=dict(type='RepVGG', arch="a1", out_indices=[1, 2, 3]),
     keypoint_head=dict(
         type='DEKRHead',
-        in_channels=[16, 128],
-        in_index=[0, 3],
+        in_channels=[64, 128, 256],
+        in_index=[0, 1, 2],
         num_heatmap_filters=32,
         num_joints=len(channel_cfg['dataset_channel'][0]),
         num_offset_filters_per_joint=15,
@@ -125,12 +100,13 @@ train_pipeline = [
         scale_factor=[0.75, 1.5],
         scale_type='short',
         trans_factor=40),
-    dict(type='BottomUpRandomFlip', flip_prob=0.5),
-    dict(type='PhotometricDistortion',
-         brightness_delta=32,
-         contrast_range=(0.8, 1.2),
-         saturation_range=(0.8, 1.2),
-         hue_delta=18),
+    dict(type='BottomUpRandomFlip', flip_prob=0.0),
+    dict(
+        type='PhotometricDistortion',
+        brightness_delta=32,
+        contrast_range=(0.8, 1.2),
+        saturation_range=(0.8, 1.2),
+        hue_delta=18),
     dict(type='ToTensor'),
     dict(type='GetKeypointCenterArea'),
     dict(
@@ -151,12 +127,10 @@ train_pipeline = [
 
 val_pipeline = [
     dict(type='LoadImageFromFile'),
-    dict(type='BottomUpGetImgSize', test_scale_factor=[1]),
-    dict(
-        type='BottomUpResizeAlign',
-        transforms=[
-            dict(type='ToTensor'),
-        ]),
+    dict(type='BottomUpGetImgSize', test_scale_factor=[1], base_length=32),
+    dict(type='BottomUpResizeAlign', transforms=[
+        dict(type='ToTensor'),
+    ]),
     dict(
         type='Collect',
         keys=['img'],
@@ -169,31 +143,68 @@ val_pipeline = [
 
 test_pipeline = val_pipeline
 
-data_root = 'data/coco'
+data_root = 'data'
 data = dict(
     workers_per_gpu=2,
     train_dataloader=dict(samples_per_gpu=32),
     val_dataloader=dict(samples_per_gpu=1),
     test_dataloader=dict(samples_per_gpu=1),
-    train=dict(
-        type='BottomUpSTGestureDataset',
-        ann_file=f'{data_root}/annotations/stgesture_person_keypoints_train2017.json',
-        img_prefix=f'{data_root}/train2017/',
-        data_cfg=data_cfg,
-        pipeline=train_pipeline,
-        dataset_info={{_base_.dataset_info}}),
+    train=[
+        dict(
+            type='BottomUpSTGestureDataset',
+            ann_file=
+            f'{data_root}/rails/rm_beijing/rm_beijing.20211123.train.json',
+            img_prefix=f'{data_root}/rails/rm_beijing/images/',
+            data_cfg=data_cfg,
+            pipeline=train_pipeline,
+            dataset_info={{_base_.dataset_info}}),
+        dict(
+            type='BottomUpSTGestureDataset',
+            ann_file=
+            f'{data_root}/rails/rm_beijing/rm_beijing.20211123.val.json',
+            img_prefix=f'{data_root}/rails/rm_beijing/images/',
+            data_cfg=data_cfg,
+            pipeline=train_pipeline,
+            dataset_info={{_base_.dataset_info}}),
+        dict(
+            type='BottomUpSTGestureDataset',
+            ann_file=
+            f'{data_root}/rails/rm_shuohuang/11pts.train.json',
+            img_prefix=f'{data_root}/rails/rm_shuohuang/images/',
+            data_cfg=data_cfg,
+            pipeline=train_pipeline,
+            dataset_info={{_base_.dataset_info}}),
+        dict(
+            type='BottomUpSTGestureDataset',
+            ann_file=
+            f'{data_root}/rails/rm_shuohuang/11pts.val.json',
+            img_prefix=f'{data_root}/rails/rm_shuohuang/images/',
+            data_cfg=data_cfg,
+            pipeline=train_pipeline,
+            dataset_info={{_base_.dataset_info}}),
+        dict(
+            type='BottomUpSTGestureDataset',
+            ann_file=
+            f'{data_root}/rails/rm_shuohuang/9pts.train.json',
+            img_prefix=f'{data_root}/rails/rm_shuohuang/images/',
+            data_cfg=data_cfg,
+            pipeline=train_pipeline,
+            dataset_info={{_base_.dataset_info}}),
+    ],
     val=dict(
         type='BottomUpSTGestureDataset',
-        ann_file=f'{data_root}/annotations/stgesture_person_keypoints_val2017.json',
-        img_prefix=f'{data_root}/val2017/',
+        ann_file=
+        f'{data_root}/rails/rm_shuohuang/9pts.val.json',
+        img_prefix=f'{data_root}/rails/rm_shuohuang/images/',
         data_cfg=data_cfg,
         pipeline=val_pipeline,
         dataset_info={{_base_.dataset_info}}),
     test=dict(
         type='BottomUpSTGestureDataset',
-        ann_file=f'{data_root}/annotations/stgesture_person_keypoints_val2017.json',
-        img_prefix=f'{data_root}/val2017/',
+        ann_file=
+        f'{data_root}/rails/rm_shuohuang/9pts.val.json',
+        img_prefix=f'{data_root}/rails/rm_shuohuang/images/',
         data_cfg=data_cfg,
         pipeline=test_pipeline,
-        dataset_info={{_base_.dataset_info}})
+        dataset_info={{_base_.dataset_info}}),
 )
