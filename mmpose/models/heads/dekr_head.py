@@ -85,7 +85,7 @@ class AdaptiveActivationBlock(nn.Module):
         offset = offset.transpose(4, 5).reshape(B, H, W, self.groups * 18)
         offset = offset.permute(0, 3, 1, 2).contiguous()
 
-        x = self.adapt_conv(x, offset)
+        x = self.adapt_conv(x.contiguous(), offset)
         x = self.norm(x)
         x = self.act(x + residual)
 
@@ -148,7 +148,7 @@ class DEKRHead(DeconvHead):
             extra=extra,
             loss_keypoint=heatmap_loss)
 
-        all_offset_layer_types = {"AdaptBlock": AdaptiveActivationBlock, "BasicBlock": BasicBlock,
+        all_offset_layer_types = {"AdaptiveBlock": AdaptiveActivationBlock, "BasicBlock": BasicBlock,
                                   "Bottleneck": Bottleneck}
         offset_layer_clz = all_offset_layer_types[offset_layer_type]
         self.num_offset_filters_per_joint = num_offset_filters_per_joint
