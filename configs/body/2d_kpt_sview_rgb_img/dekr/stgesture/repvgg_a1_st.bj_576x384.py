@@ -128,7 +128,7 @@ train_pipeline = [
 val_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='BottomUpGetImgSize', test_scale_factor=[1], base_length=32),
-    dict(type='BottomUpResizeAlign', transforms=[
+    dict(type='BottomUpResizeAlign', base_length=32, transforms=[
         dict(type='ToTensor'),
     ]),
     dict(

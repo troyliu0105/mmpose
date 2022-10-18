@@ -314,7 +314,9 @@ class DisentangledKeypointRegressor(BasePose):
 
             poses = self.parser.decode(aggregated_heatmaps, aggregated_offsets)
             # rescale pose coordinates to a unified scale
-            poses[..., :2] *= (image_size * 1.0 / heatmap_size) / s
+            # poses[..., :2] *= (image_size * 1.0 / heatmap_size) / s
+            poses[..., :0] *= float((image_size[0] * 1.0 / heatmap_size[0]) / s)
+            poses[..., :1] *= float((image_size[1] * 1.0 / heatmap_size[1]) / s)
             scale_poses_dict[s] = poses
 
         # aggregate multi-scale heatmaps
