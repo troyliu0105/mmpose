@@ -98,7 +98,7 @@ train_pipeline = [
         type='BottomUpRandomAffine',
         rot_factor=30,
         scale_factor=[0.75, 1.5],
-        scale_type='short',
+        scale_type='long',
         trans_factor=40),
     dict(type='BottomUpRandomFlip', flip_prob=0.0),
     dict(
