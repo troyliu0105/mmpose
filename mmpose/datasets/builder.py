@@ -10,7 +10,7 @@ from mmcv.parallel import collate
 from mmcv.runner import get_dist_info
 from mmcv.utils import Registry, build_from_cfg, is_seq_of
 from mmcv.utils.parrots_wrapper import _get_dataloader
-from torch.utils.data.dataset import ConcatDataset
+# from torch.utils.data.dataset import ConcatDataset
 
 from .samplers import DistributedSampler
 
@@ -28,10 +28,12 @@ PIPELINES = Registry('pipeline')
 
 
 def _concat_dataset(cfg, default_args=None):
+    from .dataset_wrappers import ConcatDataset
     types = cfg['type']
     ann_files = cfg['ann_file']
     img_prefixes = cfg.get('img_prefix', None)
     dataset_infos = cfg.get('dataset_info', None)
+    separate_eval = cfg.pop('separate_eval', True)
 
     num_joints = cfg['data_cfg'].get('num_joints', None)
     dataset_channel = cfg['data_cfg'].get('dataset_channel', None)
@@ -52,12 +54,12 @@ def _concat_dataset(cfg, default_args=None):
         if isinstance(num_joints, (list, tuple)):
             cfg_copy['data_cfg']['num_joints'] = num_joints[i]
 
-        if is_seq_of(dataset_channel, list):
-            cfg_copy['data_cfg']['dataset_channel'] = dataset_channel[i]
+        # if is_seq_of(dataset_channel, list):
+        #     cfg_copy['data_cfg']['dataset_channel'] = dataset_channel[i]
 
         datasets.append(build_dataset(cfg_copy, default_args))
 
-    return ConcatDataset(datasets)
+    return ConcatDataset(datasets, separate_eval)
 
 
 def build_dataset(cfg, default_args=None):
@@ -71,13 +73,14 @@ def build_dataset(cfg, default_args=None):
     Returns:
         Dataset: The constructed dataset.
     """
-    from .dataset_wrappers import RepeatDataset
+    from .dataset_wrappers import RepeatDataset, ConcatDataset
 
     if isinstance(cfg, (list, tuple)):
         dataset = ConcatDataset([build_dataset(c, default_args) for c in cfg])
     elif cfg['type'] == 'ConcatDataset':
+        separate_eval = cfg.get('separate_eval', False)
         dataset = ConcatDataset(
-            [build_dataset(c, default_args) for c in cfg['datasets']])
+            [build_dataset(c, default_args) for c in cfg['datasets']], separate_eval)
     elif cfg['type'] == 'RepeatDataset':
         dataset = RepeatDataset(
             build_dataset(cfg['dataset'], default_args), cfg['times'])
