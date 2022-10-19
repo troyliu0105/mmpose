@@ -1,5 +1,5 @@
 _base_ = [
-    './repvgg_a1_st.bj.dl_aic_512x288_20221012.py'
+    './repvgg_a1_st.bj.dl_aic_512x512_20221012.py'
 ]
 
 # model settings
