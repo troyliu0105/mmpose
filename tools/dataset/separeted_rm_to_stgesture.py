@@ -1,12 +1,16 @@
 """
-9pts:   0:0,1:1,2:2,3:3,4:4,5:8,6:5,7:6,8:7
-11pts:  0:11,1:0,2:1,3:2,4:3,5:4,6:8,7:5,8:6,9:7,10:9
-beijing:    "left_wrist", "left_elbow", "left_shoulder",
-            "head", "neck", "butt",
-            "right_shoulder", "right_elbow", "right_wrist"
-dalian:     "left_wrist", "left_elbow", "left_shoulder",
-            "head",
-            "right_shoulder", "right_elbow", "right_wrist",
+zz:     "right_shoulder", "right_elbow", "right_wrist"
+        "0:5,1:6,2:7"
+
+bj:     "left_wrist", "left_elbow", "left_shoulder",
+        "head", "neck", "butt",
+        "right_shoulder", "right_elbow", "right_wrist"
+        "0:0,1:1,2:2,3:3,4:4,5:8,6:5,7:6,8:7"
+        "0:11,1:0,2:1,3:2,4:3,5:4,6:8,7:5,8:6,9:7,10:9"
+
+dl:     "left_wrist", "left_elbow", "left_shoulder",
+        "head",
+        "right_shoulder", "right_elbow", "right_wrist",
 """
 
 import argparse
@@ -80,7 +84,8 @@ if __name__ == '__main__':
                     record_annos = []
                     for shape in shapes:
                         points = np.array(shape["points"])
-                        points_type = np.array(shape["point_type"])
+                        points_type = np.array(shape["point_type"]) if "point_type" in shape else np.ones(
+                            (len(points),), dtype=points.dtype) * 2
                         kps = np.concatenate((points, points_type[:, None]), axis=-1)
                         dest_kps = np.zeros((len(kps_labels), 3), dtype=np.int32)
                         for src, dst in mapper.items():
