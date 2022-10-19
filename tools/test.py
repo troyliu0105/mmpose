@@ -103,7 +103,11 @@ def main():
     if cfg.get('cudnn_benchmark', False):
         torch.backends.cudnn.benchmark = True
     cfg.model.pretrained = None
-    cfg.data.test.test_mode = True
+    if isinstance(cfg.data.test, (list, tuple)):
+        for d in cfg.data.test:
+            d.test_mode = True
+    else:
+        cfg.data.test.test_mode = True
 
     # work_dir is determined in this priority: CLI > segment in file > filename
     if args.work_dir is not None:

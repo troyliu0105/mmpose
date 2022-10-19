@@ -52,3 +52,30 @@ class ConcatDataset(_ConcatDataset):
             if len(set([type(ds) for ds in datasets])) != 1:
                 raise NotImplementedError(
                     'All the datasets should have same types')
+
+    def evaluate(self, results, res_folder=None, metric='mAP', **kwargs):
+        assert len(results) == self.cumulative_sizes[-1], \
+            ('Dataset and results have different sizes: '
+             f'{self.cumulative_sizes[-1]} v.s. {len(results)}')
+        for dataset in self.datasets:
+            assert hasattr(dataset, 'evaluate'), \
+                f'{type(dataset)} does not implement evaluate function'
+
+        total_eval_results = dict()
+        dataset_idx = -1
+        for size, dataset in zip(self.cumulative_sizes, self.datasets):
+            start_idx = 0 if dataset_idx == -1 else self.cumulative_sizes[dataset_idx]
+            end_idx = self.cumulative_sizes[dataset_idx + 1]
+
+            results_per_dataset = results[start_idx:end_idx]
+            eval_results_per_dataset = dataset.evaluate(results_per_dataset, res_folder, metric, **kwargs)
+            dataset_idx += 1
+            for k, v in eval_results_per_dataset.items():
+                if self.separate_eval:
+                    total_eval_results.update({f'{dataset_idx}_{k}': v})
+                else:
+                    total_eval_results[k] = total_eval_results.get(k, 0.0) + v
+        if not self.separate_eval:
+            for k in total_eval_results:
+                total_eval_results[k] /= len(self.datasets)
+        return total_eval_results
