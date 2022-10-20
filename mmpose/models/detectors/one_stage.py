@@ -244,6 +244,7 @@ class DisentangledKeypointRegressor(BasePose):
         skeleton = img_metas['skeleton']
 
         image_size = torch.tensor(image_size).to(img.device)
+        heatmap_size = torch.tensor(heatmap_size).to(img.device)
 
         result = {}
 
