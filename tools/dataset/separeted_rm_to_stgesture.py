@@ -115,6 +115,7 @@ if __name__ == '__main__':
                         kp_anno = {
                             "keypoints": dest_kps.flatten().tolist(),
                             "num_keypoints": int(valid_idx.sum()),
+                            "avail_keypoints": list(mapper.values()),
                             "category_id": 1,
                             "image_id": img_id,
                             "iscrowd": 0,

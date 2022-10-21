@@ -85,6 +85,7 @@ def extract_pose(json_data, current_image_idx, current_anno_idx):
         kp_anno = {
             'keypoints': kpts.flatten().tolist(),
             'num_keypoints': int((kpts[:, -1] != 0).sum()),
+            "avail_keypoints": list(range(13)),
             'category_id': 1,
             'image_id': current_image_idx,
             'iscrowd': 0,

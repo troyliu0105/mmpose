@@ -113,7 +113,7 @@ class BottomUpSTGestureDataset(BottomUpCocoDataset):
         db_rec['image_file'] = osp.join(self.img_prefix, self.id2name[img_id])
         db_rec['mask'] = mask_list
         db_rec['joints'] = joints_list
-        db_rec['avail_keypoints'] = [a['avail_keypoints'] for a in anno]
+        db_rec['avail_keypoints'] = [a.get('avail_keypoints', self.ann_info['dataset_channel'][0]) for a in anno]
 
         if self.with_bbox:
             # add bbox and area
