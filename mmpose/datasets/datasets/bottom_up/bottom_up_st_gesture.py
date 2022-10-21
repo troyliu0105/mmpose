@@ -1,3 +1,4 @@
+import os.path as osp
 import json
 
 import numpy as np
@@ -82,7 +83,55 @@ class BottomUpSTGestureDataset(BottomUpCocoDataset):
         # ===================================================================
 
     def _get_single(self, idx):
-        return super()._get_single(idx)
+        """Get anno for a single image.
+
+        Args:
+            idx (int): image idx
+
+        Returns:
+            dict: info for model training
+        """
+        coco = self.coco
+        img_id = self.img_ids[idx]
+        ann_ids = coco.getAnnIds(imgIds=img_id)
+        anno = coco.loadAnns(ann_ids)
+
+        mask = self._get_mask(anno, idx)
+        anno = [
+            obj.copy() for obj in anno
+            if obj['iscrowd'] == 0 or obj['num_keypoints'] > 0
+        ]
+
+        joints = self._get_joints(anno)
+        mask_list = [mask.copy() for _ in range(self.ann_info['num_scales'])]
+        joints_list = [
+            joints.copy() for _ in range(self.ann_info['num_scales'])
+        ]
+
+        db_rec = {}
+        db_rec['dataset'] = self.dataset_name
+        db_rec['image_file'] = osp.join(self.img_prefix, self.id2name[img_id])
+        db_rec['mask'] = mask_list
+        db_rec['joints'] = joints_list
+        db_rec['avail_keypoints'] = [a['avail_keypoints'] for a in anno]
+
+        if self.with_bbox:
+            # add bbox and area
+            num_people = len(anno)
+            areas = np.zeros((num_people, 1))
+            bboxes = np.zeros((num_people, 4, 2))
+            for i, obj in enumerate(anno):
+                areas[i, 0] = obj['bbox'][2] * obj['bbox'][3]
+                bboxes[i, :, 0], bboxes[i, :,
+                                        1] = obj['bbox'][0], obj['bbox'][1]
+                bboxes[i, 1, 0] += obj['bbox'][2]
+                bboxes[i, 2, 1] += obj['bbox'][3]
+                bboxes[i, 3, 0] += obj['bbox'][2]
+                bboxes[i, 3, 1] += obj['bbox'][3]
+            db_rec['bboxes'] = bboxes
+            db_rec['areas'] = areas
+
+        return db_rec
 
     def _do_python_keypoint_eval(self, res_file):
         """Keypoint evaluation using COCOAPI."""

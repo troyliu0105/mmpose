@@ -16,10 +16,11 @@ from .topdown_heatmap_multi_stage_head import (TopdownHeatmapMSMUHead,
 from .topdown_heatmap_simple_head import TopdownHeatmapSimpleHead
 from .vipnas_heatmap_simple_head import ViPNASHeatmapSimpleHead
 from .dekr_head import DEKRHead
+from .dekr_head_v2 import DEKRHeadV2
 from .voxelpose_head import CuboidCenterHead, CuboidPoseHead
 
 __all__ = [
-    "DEKRHead",
+    "DEKRHead", "DEKRHeadV2",
     'TopdownHeatmapSimpleHead', 'TopdownHeatmapMultiStageHead',
     'TopdownHeatmapMSMUHead', 'TopdownHeatmapBaseHead',
     'AEHigherResolutionHead', 'AESimpleHead', 'AEMultiStageHead', 'CIDHead',

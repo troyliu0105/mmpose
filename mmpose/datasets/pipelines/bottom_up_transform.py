@@ -495,6 +495,43 @@ class GetKeypointCenterArea:
 
 
 @PIPELINES.register_module()
+class SelectKeypointAsCenterArea:
+    def __init__(self, center_ind, minimal_area=32):
+        self.center_ind = center_ind
+        self.minimal_area = minimal_area
+
+    def __call__(self, results):
+        center_list = []
+        area_list = []
+
+        for joints in results['joints']:
+
+            area = np.zeros((joints.shape[0]), dtype=np.float32)
+            center = np.zeros((joints.shape[0], 1, 3), dtype=np.float32)
+            for i in range(joints.shape[0]):
+                visible_joints = joints[i][joints[i][..., 2] > 0][..., :2]
+                if visible_joints.size == 0:
+                    continue
+
+                center[i, 0, :2] = joints[i][self.center_ind, :2]
+                center[i, 0, 2] = joints[i][self.center_ind, 2]
+
+                area[i] = np.power(
+                    visible_joints.max(axis=0) - visible_joints.min(axis=0),
+                    2)[:2].sum()
+                if area[i] < self.minimal_area:
+                    center[i, 0, 2] = 0
+
+            center_list.append(center)
+            area_list.append(area)
+
+        results['center'] = center_list
+        results['area'] = area_list
+
+        return results
+
+
+@PIPELINES.register_module()
 class BottomUpRandomFlip:
     """Data augmentation with random image flip for bottom-up.
 
@@ -780,6 +817,9 @@ class BottomUpGenerateHeatmapTarget:
                 mask = mask[None, ...].repeat(heatmaps.shape[0], axis=0)
                 mask = mask * self.bg_weight
                 mask[np.logical_and(heatmaps > 0, mask > 0)] = 1
+                avail_keypoints = results['avail_keypoints'][0]
+                empty_keypoints = list(set(results['ann_info']['dataset_channel'][0]) - set(avail_keypoints))
+                mask[empty_keypoints] = 0
                 output_mask_list.append(mask)
 
         if self.gen_center_heatmap:
@@ -805,6 +845,57 @@ class BottomUpGenerateHeatmapTarget:
         results['masks'] = output_mask_list
 
         return results
+
+
+@PIPELINES.register_module()
+class BottomUpGenerateHeatmapTargetV2(BottomUpGenerateHeatmapTarget):
+    def __call__(self, results):
+        """Generate multi-scale heatmap target for bottom-up."""
+        target_list = list()
+        joints_list = results['joints']
+        mask_list = results['mask']
+        output_mask_list = []
+
+        heatmap_generator = \
+            self._generate(results['ann_info']['num_joints'],
+                           self.sigma[0],
+                           results['ann_info']['heatmap_size'])
+
+        for scale_id in range(results['ann_info']['num_scales']):
+            heatmaps = heatmap_generator[scale_id](joints_list[scale_id])
+            target_list.append(heatmaps.astype(np.float32))
+
+            if self.bg_weight != 1:
+                mask = mask_list[scale_id].copy().astype(np.float32)
+                mask = mask[None, ...].repeat(heatmaps.shape[0], axis=0)
+                mask = mask * self.bg_weight
+                mask[np.logical_and(heatmaps > 0, mask > 0)] = 1
+                output_mask_list.append(mask)
+
+        if self.gen_center_heatmap:
+            center_list = results['center']
+            heatmap_generator = self._generate(
+                1, self.sigma[1], results['ann_info']['heatmap_size'])
+
+            for scale_id in range(results['ann_info']['num_scales']):
+                heatmaps = heatmap_generator[scale_id](
+                    center_list[scale_id]).astype(np.float32)
+                target_list[scale_id] = np.concatenate(
+                    (heatmaps, target_list[scale_id]), axis=0)
+
+                if self.bg_weight != 1:
+                    mask = mask_list[scale_id].copy().astype(np.float32)
+                    mask = mask[None, ...] * self.bg_weight
+                    mask[np.logical_and(heatmaps > 0, mask > 0)] = 1
+                    output_mask_list[scale_id] = np.concatenate(
+                        (mask, output_mask_list[scale_id]), axis=0)
+
+        results['target'] = target_list
+        results['heatmaps'] = target_list
+        results['masks'] = output_mask_list
+
+        return results
+
 
 
 @PIPELINES.register_module()
