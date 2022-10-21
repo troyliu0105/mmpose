@@ -11,6 +11,7 @@ bj:     "left_wrist", "left_elbow", "left_shoulder",
 dl:     "left_wrist", "left_elbow", "left_shoulder",
         "head",
         "right_shoulder", "right_elbow", "right_wrist",
+        "0:0,1:1,2:2,3:3,4:5,5:6,6:7"
 """
 
 import argparse
@@ -93,10 +94,10 @@ if __name__ == '__main__':
                                 dest_kps[dst] = kps[src]
                         valid_idx = dest_kps[:, -1] != 0
                         dest_kps[~valid_idx, :] = 0
-                        min_x = np.maximum(0, np.min(dest_kps[valid_idx, 0]) - 1)
-                        min_y = np.maximum(0, np.min(dest_kps[valid_idx, 1]) - 1)
-                        max_x = np.minimum(anno["imageWidth"], np.max(dest_kps[valid_idx, 0]) - 1)
-                        max_y = np.minimum(anno["imageHeight"], np.max(dest_kps[valid_idx, 1]) - 1)
+                        # min_x = np.maximum(0, np.min(dest_kps[valid_idx, 0]) - 1)
+                        # min_y = np.maximum(0, np.min(dest_kps[valid_idx, 1]) - 1)
+                        # max_x = np.minimum(anno["imageWidth"], np.max(dest_kps[valid_idx, 0]) - 1)
+                        # max_y = np.minimum(anno["imageHeight"], np.max(dest_kps[valid_idx, 1]) - 1)
                         # scale = 1.2
                         # w = max_x - min_x
                         # h = max_y - min_y
@@ -105,15 +106,21 @@ if __name__ == '__main__':
                         # bbox[[0, 2]] = np.clip(bbox[[0, 2]], 0, anno["imageWidth"])
                         # bbox[[1, 3]] = np.clip(bbox[[1, 3]], 0, anno["imageHeight"])
                         # area = bbox[2] * bbox[3]
+                        vis_kpts = dest_kps[valid_idx, :2].copy()
+                        xmin, ymin = np.min(vis_kpts[:, 0]), np.min(vis_kpts[:, 1])
+                        xmax, ymax = np.max(vis_kpts[:, 0]), np.max(vis_kpts[:, 1])
+                        bbox = np.array([xmin, ymin, xmax - xmin,
+                                         ymax - ymin]).astype(np.int32).tolist()
+                        area = bbox[2] * bbox[3]
                         kp_anno = {
                             "keypoints": dest_kps.flatten().tolist(),
                             "num_keypoints": int(valid_idx.sum()),
                             "category_id": 1,
                             "image_id": img_id,
                             "iscrowd": 0,
-                            # "area": int(area),
-                            # "bbox": bbox.astype(np.int32).tolist(),
-                            "bbox": [0, 0, anno["imageWidth"], anno["imageHeight"]],
+                            "area": int(area),
+                            "bbox": bbox,
+                            # "bbox": [0, 0, anno["imageWidth"], anno["imageHeight"]],
                             "id": ann_id
                         }
                         root_annotations.append(kp_anno)
