@@ -65,7 +65,7 @@ class DEKRHeadV2(DEKRHead):
                 resize(
                     input=x,
                     scale_factor=scale,
-                    mode='nearest') for x, scale in zip(inputs, self.upsample_scales)
+                    mode='nearest') if x != 1 else x for x, scale in zip(inputs, self.upsample_scales)
             ]
             inputs = torch.cat(upsampled_inputs, dim=1)
         elif self.input_transform == 'multiple_select':

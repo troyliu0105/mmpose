@@ -3,14 +3,15 @@ _base_ = [
 ]
 
 optimizer = dict(
+    _delete_=True,
     type='SGD',
     lr=0.0001,
     momentum=0.9,
     weight_decay=0.0001
 )
-optimizer_config = dict(grad_clip=None)
 # learning policy
 lr_config = dict(
+    _delete_=True,
     policy='fixed')
 total_epochs = 4
 
@@ -27,7 +28,7 @@ data = dict(
         dict(
             type='BottomUpSTGestureDataset',
             ann_file=
-            f'{data_root}/rails/rm_platform/data.train.json',
+            f'{data_root}/rails/rm_platform/train.json',
             img_prefix=f'{data_root}/rails/rm_platform/images/',
             data_cfg={{_base_.data_cfg}},
             pipeline={{_base_.train_pipeline}},
@@ -47,7 +48,7 @@ data = dict(
             dict(
                 type='BottomUpSTGestureDataset',
                 ann_file=
-                f'{data_root}/rails/rm_platform/data.val.json',
+                f'{data_root}/rails/rm_platform/val.json',
                 img_prefix=f'{data_root}/rails/rm_platform/images/',
                 data_cfg={{_base_.data_cfg}},
                 pipeline={{_base_.val_pipeline}},
@@ -69,7 +70,7 @@ data = dict(
             dict(
                 type='BottomUpSTGestureDataset',
                 ann_file=
-                f'{data_root}/rails/rm_platform/data.val.json',
+                f'{data_root}/rails/rm_platform/val.json',
                 img_prefix=f'{data_root}/rails/rm_platform/images/',
                 data_cfg={{_base_.data_cfg}},
                 pipeline={{_base_.test_pipeline}},

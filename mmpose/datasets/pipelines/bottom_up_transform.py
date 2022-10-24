@@ -817,9 +817,6 @@ class BottomUpGenerateHeatmapTarget:
                 mask = mask[None, ...].repeat(heatmaps.shape[0], axis=0)
                 mask = mask * self.bg_weight
                 mask[np.logical_and(heatmaps > 0, mask > 0)] = 1
-                avail_keypoints = results['avail_keypoints'][0]
-                empty_keypoints = list(set(results['ann_info']['dataset_channel'][0]) - set(avail_keypoints))
-                mask[empty_keypoints] = 0
                 output_mask_list.append(mask)
 
         if self.gen_center_heatmap:
@@ -870,6 +867,9 @@ class BottomUpGenerateHeatmapTargetV2(BottomUpGenerateHeatmapTarget):
                 mask = mask[None, ...].repeat(heatmaps.shape[0], axis=0)
                 mask = mask * self.bg_weight
                 mask[np.logical_and(heatmaps > 0, mask > 0)] = 1
+                avail_keypoints = results['avail_keypoints'][0]
+                empty_keypoints = list(set(results['ann_info']['dataset_channel'][0]) - set(avail_keypoints))
+                mask[empty_keypoints] = 0
                 output_mask_list.append(mask)
 
         if self.gen_center_heatmap:

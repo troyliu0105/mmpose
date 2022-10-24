@@ -29,12 +29,12 @@ data_cfg = dict(
 model = dict(
     _delete_=True,
     type='DisentangledKeypointRegressor',
-    backbone=dict(type='RepVGG', arch="a1", out_indices=[2, 3]),
+    backbone=dict(type='RepVGG', arch="a1", out_indices=[1, 2, 3]),
     keypoint_head=dict(
         type='DEKRHeadV2',
-        in_channels=[128, 256],
-        in_index=[0, 1],
-        upsample_scales=[2, 4],
+        in_channels=[64, 128, 256],
+        in_index=[0, 1, 2],
+        upsample_scales=[1, 2, 4],
         num_heatmap_filters=32,
         num_joints=len(channel_cfg['dataset_channel'][0]),
         num_offset_filters_per_joint=15,
@@ -73,10 +73,10 @@ train_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(
         type='BottomUpRandomAffine',
-        rot_factor=30,
-        scale_factor=[0.75, 1.5],
+        rot_factor=10,
+        scale_factor=[0.85, 1.15],
         scale_type='long',
-        trans_factor=40),
+        trans_factor=20),
     dict(type='BottomUpRandomFlip', flip_prob=0.0),
     dict(
         type='PhotometricDistortion',
@@ -85,11 +85,11 @@ train_pipeline = [
         saturation_range=(0.8, 1.2),
         hue_delta=18),
     dict(type='ToTensor'),
-    # right shoulder as center
-    dict(type='SelectKeypointAsCenterArea', center_ind=5),
+    # butt as center
+    dict(type='SelectKeypointAsCenterArea', center_ind=8),
     dict(
-        type='BottomUpGenerateHeatmapTarget',
-        sigma=(2, 4),
+        type='BottomUpGenerateHeatmapTargetV2',
+        sigma=(2, 2),
         gen_center_heatmap=True,
         bg_weight=0.1,
     ),
@@ -132,14 +132,14 @@ data = dict(
             data_cfg=data_cfg,
             pipeline=train_pipeline,
             dataset_info={{_base_.dataset_info}}),
-        dict(
-            type='BottomUpSTGestureDataset',
-            ann_file=
-            f'{data_root}/rails/rm_dalian/rm_dalian.20221021.train.json',
-            img_prefix=f'{data_root}/rails/rm_dalian/images/',
-            data_cfg=data_cfg,
-            pipeline=train_pipeline,
-            dataset_info={{_base_.dataset_info}}),
+        # dict(
+        #     type='BottomUpSTGestureDataset',
+        #     ann_file=
+        #     f'{data_root}/rails/rm_dalian/rm_dalian.20221021.train.json',
+        #     img_prefix=f'{data_root}/rails/rm_dalian/images/',
+        #     data_cfg=data_cfg,
+        #     pipeline=train_pipeline,
+        #     dataset_info={{_base_.dataset_info}}),
         dict(
             type='BottomUpSTGestureDataset',
             ann_file=
@@ -153,6 +153,14 @@ data = dict(
             ann_file=
             f'{data_root}/rails/rm_shuohuang/rm_shuohuang.9pts.20221021.train.json',
             img_prefix=f'{data_root}/rails/rm_shuohuang/images/',
+            data_cfg=data_cfg,
+            pipeline=train_pipeline,
+            dataset_info={{_base_.dataset_info}}),
+        dict(
+            type='BottomUpSTGestureDataset',
+            ann_file=
+            f'{data_root}/rails/rm_platform/train.json',
+            img_prefix=f'{data_root}/rails/rm_platform/images/',
             data_cfg=data_cfg,
             pipeline=train_pipeline,
             dataset_info={{_base_.dataset_info}}),
@@ -176,14 +184,14 @@ data = dict(
                 data_cfg=data_cfg,
                 pipeline=val_pipeline,
                 dataset_info={{_base_.dataset_info}}),
-            dict(
-                type='BottomUpSTGestureDataset',
-                ann_file=
-                f'{data_root}/rails/rm_dalian/rm_dalian.20221021.val.json',
-                img_prefix=f'{data_root}/rails/rm_dalian/images/',
-                data_cfg=data_cfg,
-                pipeline=val_pipeline,
-                dataset_info={{_base_.dataset_info}}),
+            # dict(
+            #     type='BottomUpSTGestureDataset',
+            #     ann_file=
+            #     f'{data_root}/rails/rm_dalian/rm_dalian.20221021.val.json',
+            #     img_prefix=f'{data_root}/rails/rm_dalian/images/',
+            #     data_cfg=data_cfg,
+            #     pipeline=val_pipeline,
+            #     dataset_info={{_base_.dataset_info}}),
             dict(
                 type='BottomUpSTGestureDataset',
                 ann_file=
@@ -197,6 +205,14 @@ data = dict(
                 ann_file=
                 f'{data_root}/rails/rm_shuohuang/rm_shuohuang.9pts.20221021.val.json',
                 img_prefix=f'{data_root}/rails/rm_shuohuang/images/',
+                data_cfg=data_cfg,
+                pipeline=val_pipeline,
+                dataset_info={{_base_.dataset_info}}),
+            dict(
+                type='BottomUpSTGestureDataset',
+                ann_file=
+                f'{data_root}/rails/rm_platform/val.json',
+                img_prefix=f'{data_root}/rails/rm_platform/images/',
                 data_cfg=data_cfg,
                 pipeline=val_pipeline,
                 dataset_info={{_base_.dataset_info}}),
@@ -221,14 +237,14 @@ data = dict(
                 data_cfg=data_cfg,
                 pipeline=test_pipeline,
                 dataset_info={{_base_.dataset_info}}),
-            dict(
-                type='BottomUpSTGestureDataset',
-                ann_file=
-                f'{data_root}/rails/rm_dalian/rm_dalian.20221021.val.json',
-                img_prefix=f'{data_root}/rails/rm_dalian/images/',
-                data_cfg=data_cfg,
-                pipeline=test_pipeline,
-                dataset_info={{_base_.dataset_info}}),
+            # dict(
+            #     type='BottomUpSTGestureDataset',
+            #     ann_file=
+            #     f'{data_root}/rails/rm_dalian/rm_dalian.20221021.val.json',
+            #     img_prefix=f'{data_root}/rails/rm_dalian/images/',
+            #     data_cfg=data_cfg,
+            #     pipeline=test_pipeline,
+            #     dataset_info={{_base_.dataset_info}}),
             dict(
                 type='BottomUpSTGestureDataset',
                 ann_file=
@@ -242,6 +258,14 @@ data = dict(
                 ann_file=
                 f'{data_root}/rails/rm_shuohuang/rm_shuohuang.9pts.20221021.val.json',
                 img_prefix=f'{data_root}/rails/rm_shuohuang/images/',
+                data_cfg=data_cfg,
+                pipeline=test_pipeline,
+                dataset_info={{_base_.dataset_info}}),
+            dict(
+                type='BottomUpSTGestureDataset',
+                ann_file=
+                f'{data_root}/rails/rm_platform/data.val.json',
+                img_prefix=f'{data_root}/rails/rm_platform/images/',
                 data_cfg=data_cfg,
                 pipeline=test_pipeline,
                 dataset_info={{_base_.dataset_info}}),
