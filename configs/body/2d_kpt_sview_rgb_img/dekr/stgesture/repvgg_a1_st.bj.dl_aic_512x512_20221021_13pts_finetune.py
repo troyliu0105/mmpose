@@ -2,6 +2,18 @@ _base_ = [
     './repvgg_a1_st.bj.dl_aic_512x512_20221021.py',
 ]
 
+optimizer = dict(
+    type='SGD',
+    lr=0.0001,
+    momentum=0.9,
+    weight_decay=0.0001
+)
+optimizer_config = dict(grad_clip=None)
+# learning policy
+lr_config = dict(
+    policy='fixed')
+total_epochs = 4
+
 data_root = 'data'
 data = dict(
     train=[
