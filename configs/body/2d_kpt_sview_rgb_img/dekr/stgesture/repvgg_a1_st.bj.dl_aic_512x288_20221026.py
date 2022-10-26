@@ -3,6 +3,7 @@ _base_ = [
 ]
 
 channel_cfg = dict(
+    _delete_=True,
     num_output_channels=13,
     dataset_joints=13,
     dataset_channel=[
@@ -11,6 +12,7 @@ channel_cfg = dict(
     inference_channel=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
 
 data_cfg = dict(
+    _delete_=True,
     image_size=[512, 288],
     base_size=[256, 144],
     base_sigma=2,
@@ -31,6 +33,7 @@ model = dict(
     type='DisentangledKeypointRegressor',
     backbone=dict(type='RepVGG', arch="a1", out_indices=[1, 2, 3]),
     keypoint_head=dict(
+        _delete_=True,
         type='DEKRHeadV2',
         in_channels=[64, 128, 256],
         in_index=[0, 1, 2],
@@ -174,6 +177,7 @@ data = dict(
             dataset_info={{_base_.dataset_info}})
     ],
     val=dict(
+        _delete_=True,
         type='ConcatDataset',
         separate_eval=False,
         datasets=[
@@ -227,6 +231,7 @@ data = dict(
         ]
     ),
     test=dict(
+        _delete_=True,
         type='ConcatDataset',
         separate_eval=False,
         datasets=[
