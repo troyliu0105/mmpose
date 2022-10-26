@@ -76,7 +76,8 @@ train_pipeline = [
         rot_factor=10,
         scale_factor=[0.85, 1.15],
         scale_type='long',
-        trans_factor=20),
+        trans_factor=10,
+        clip=True),
     dict(type='BottomUpRandomFlip', flip_prob=0.0),
     dict(
         type='PhotometricDistortion',

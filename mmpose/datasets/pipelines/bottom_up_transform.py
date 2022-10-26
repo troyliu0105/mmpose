@@ -596,13 +596,15 @@ class BottomUpRandomAffine:
                  scale_factor,
                  scale_type,
                  trans_factor,
-                 use_udp=False):
+                 use_udp=False,
+                 clip=False):
         self.max_rotation = rot_factor
         self.min_scale = scale_factor[0]
         self.max_scale = scale_factor[1]
         self.scale_type = scale_type
         self.trans_factor = trans_factor
         self.use_udp = use_udp
+        self.clip = clip
 
     def _get_scale(self, image_size, resized_size):
         w, h = image_size
@@ -742,8 +744,15 @@ class BottomUpRandomAffine:
                 rot=aug_rot,
                 output_size=self.input_size)
             image = cv2.warpAffine(image, mat_input, (int(
-                self.input_size[0]), int(self.input_size[1])))
+                self.input_size[0]), int(self.input_size[1])), flags=cv2.INTER_LINEAR)
 
+        if self.clip:
+            for i, opt_size in zip(range(len(joints)), self.output_size):
+                outside = np.logical_or(joints[i][:, :, 0] < 0, joints[i][:, :, 0] >= opt_size[0])
+                outside = np.logical_or(outside,
+                                        np.logical_or(joints[i][:, :, 1] < 0, joints[i][:, :, 1] >= opt_size[1]))
+                outside = np.logical_or(outside, joints[i][:, :, 0] == 0)
+                joints[i][outside] = 0
         results['img'], results['mask'], results[
             'joints'] = image, mask, joints
 
@@ -777,7 +786,7 @@ class BottomUpGenerateHeatmapTarget:
                  use_udp=False):
 
         if isinstance(sigma, int):
-            sigma = (sigma, )
+            sigma = (sigma,)
         if gen_center_heatmap:
             assert len(sigma) == 2, 'sigma for centers must be given if ' \
                                     '`gen_center_heatmap` is True. ' \
@@ -895,7 +904,6 @@ class BottomUpGenerateHeatmapTargetV2(BottomUpGenerateHeatmapTarget):
         results['masks'] = output_mask_list
 
         return results
-
 
 
 @PIPELINES.register_module()
