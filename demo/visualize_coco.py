@@ -13,7 +13,7 @@ def plot_keypoints(img, kps):
         if kp[2] > 0:
             center = (int(kp[0]), int(kp[1]))
             cv2.circle(img, center, 4, (255, 0, 0))
-            cv2.putText(img, str(i), center, cv2.FONT_HERSHEY_SIMPLEX, fontScale=1.5, color=(0, 255, 0))
+            cv2.putText(img, str(i), center, cv2.FONT_HERSHEY_SIMPLEX, fontScale=1, thickness=2, color=(255, 0, 0))
     return img
 
 

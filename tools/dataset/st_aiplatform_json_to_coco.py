@@ -5,31 +5,25 @@ import json
 import os
 import random
 import shutil
+from datetime import datetime
 
 import numpy as np
 import tqdm
 
 # 关键点标签名
 kps_labels = [
-    # 0         , 1           , 2
-    'left_wrist',
-    'left_elbow',
-    'left_shoulder',
-    # 3   , 4
-    'head',
-    'neck',
-    # 5             , 6            , 7
-    'right_shoulder',
-    'right_elbow',
-    'right_wrist',
+    # 0         , 1             , 2
+    'left_wrist', 'left_elbow', 'left_shoulder',
+    # 3    , 4
+    'head', 'neck',
+    # 5              , 6             , 7
+    'right_shoulder', 'right_elbow', 'right_wrist',
     # 8
     'butt',
-    # 9         , 10
-    'right_knee',
-    'right_ankle',
-    # 11       , 12
-    'left_knee',
-    'left_ankle',
+    # 9           , 10
+    'right_knee', 'right_ankle',
+    # 11        , 12
+    'left_knee', 'left_ankle',
 ]
 kps_labels_cn = [
     '左手腕', '左手肘', '左肩', '头顶', '脖子', '右肩', '右手肘', '右手腕', '尾椎骨', '右膝盖', '右脚踝',
@@ -38,7 +32,13 @@ kps_labels_cn = [
 cn_vis_to_int = {'正常': 2, '遮挡': 1, '不存在': 0}
 # 平台的标注顺序和 STGesture 定义顺序不一样，需要转换
 # source: https://troyliu0105.notion.site/6e21ddbeb54f46a493546b70b1500b2f
-platform_label_seq_trans = [12, 11, 0, 1, 2, 3, 4, 8, 5, 6, 7, 9, 10]
+# platform_label_seq_trans = [12, 11, 0, 1, 2, 3, 4, 8, 5, 6, 7, 9, 10]
+platform_label_seq_trans = [2, 3, 4,
+                            5, 6,
+                            8, 9, 10,
+                            7,
+                            11, 12,
+                            1, 0]
 root_categories = [{
     'id':
         1,
@@ -59,8 +59,8 @@ def extract_pose(json_data, current_image_idx, current_anno_idx):
         if poly['label'] != '司机关键点':
             continue
         try:
-            kpts = np.array(poly['points']).reshape(
-                (13, 2))[platform_label_seq_trans]
+            kpts = np.array(poly['points']).reshape((13, 2))
+            kpts = kpts[platform_label_seq_trans]
         except:
             raise ValueError('标签错误！！！')
         vis_label = []
@@ -102,14 +102,11 @@ def main(args):
     root_dir = args.root
     output_dir = args.output
     ratio = args.ratio
-    out = os.path.join(output_dir, 'data.json')
+    out = os.path.join(output_dir, f'{datetime.now().strftime("%Y%m%d")}.json')
     if not os.path.exists(
             output_image_dir := os.path.join(output_dir, 'images')):
         os.makedirs(output_image_dir)
     base_dirs = [f for f in glob.glob(f'{root_dir}/*') if os.path.isdir(f)]
-
-    root_images = []
-    root_annotations = []
 
     current_image_idx = 0
     current_anno_idx = 0
@@ -149,6 +146,8 @@ def main(args):
     ]
 
     for sub_pairs, suffix in zip(imgs_split, ['train', 'val']):
+        root_images = []
+        root_annotations = []
         for img_path, json_path in tqdm.tqdm(sub_pairs):
             base_name = os.path.normpath(json_path).split(os.path.sep)[-3]
             img_name = os.path.split(img_path)[1]
