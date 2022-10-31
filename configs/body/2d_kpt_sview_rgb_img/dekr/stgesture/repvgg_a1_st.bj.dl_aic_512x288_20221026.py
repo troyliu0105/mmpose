@@ -179,6 +179,8 @@ data = dict(
         _delete_=True,
         type='ConcatDataset',
         separate_eval=False,
+        data_cfg=data_cfg,
+        dataset_info={{_base_.dataset_info}},
         datasets=[
             # dict(
             #     type='BottomUpSTGestureDataset',
@@ -233,6 +235,8 @@ data = dict(
         _delete_=True,
         type='ConcatDataset',
         separate_eval=False,
+        data_cfg=data_cfg,
+        dataset_info={{_base_.dataset_info}},
         datasets=[
             # dict(
             #     type='BottomUpSTGestureDataset',
@@ -284,4 +288,3 @@ data = dict(
         ]
     )
 )
-
