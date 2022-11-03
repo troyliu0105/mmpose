@@ -8,6 +8,7 @@ model = dict(
     # regnetx_3.2gf: 96, 192, 432
     # regnetx_4.0gf: 80, 240, 560
     backbone=dict(type='RegNet', arch='regnetx_3.2gf', out_indices=[1, 2]),
+    pretrained='https://download.openmmlab.com/pretrain/third_party/regnetx_3.2gf-c2599b0f.pth',
     keypoint_head=dict(
         type='DEKRHeadV2',
         in_channels=[192, 432],
