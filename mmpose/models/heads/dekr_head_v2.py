@@ -82,6 +82,7 @@ class DEKRHeadV2(DEKRHead):
                 for _ in range(self.num_joints)
             ]
         )
+        self.offset_conv_layers = nn.Sequential()
 
     def _transform_inputs(self, inputs):
         """Transform inputs for decoder.
