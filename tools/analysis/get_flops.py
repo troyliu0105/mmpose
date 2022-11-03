@@ -66,7 +66,7 @@ def main():
     else:
         raise ValueError('invalid input shape')
 
-    model = init_pose_model(args.config)
+    model = init_pose_model(args.config, device='cpu')
 
     if args.input_constructor == 'batch':
         input_constructor = partial(batch_constructor, model, args.batch_size)
