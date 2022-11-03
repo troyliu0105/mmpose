@@ -7,13 +7,12 @@ from mmcv.cnn import (ConvModule, build_activation_layer, build_conv_layer,
                       build_norm_layer, constant_init, normal_init)
 
 from mmpose.models.builder import build_loss
-from ..backbones.resnet import BasicBlock, Bottleneck
+from ..backbones.resnet import BasicBlock
 from ..builder import HEADS
 from .deconv_head import DeconvHead
 
 try:
     from mmcv.ops import DeformConv2d
-
     has_mmcv_full = True
 except (ImportError, ModuleNotFoundError):
     has_mmcv_full = False
@@ -124,8 +123,6 @@ class DEKRHead(DeconvHead):
                  num_joints,
                  num_heatmap_filters=32,
                  num_offset_filters_per_joint=15,
-                 num_offset_filters_layers=2,
-                 offset_layer_type="AdaptiveBlock",
                  in_index=0,
                  input_transform=None,
                  num_deconv_layers=0,
@@ -148,11 +145,6 @@ class DEKRHead(DeconvHead):
             extra=extra,
             loss_keypoint=heatmap_loss)
 
-        all_offset_layer_types = {"AdaptiveBlock": AdaptiveActivationBlock, "BasicBlock": BasicBlock,
-                                  "Bottleneck": Bottleneck}
-        offset_layer_clz = all_offset_layer_types[offset_layer_type]
-        self.num_offset_filters_per_joint = num_offset_filters_per_joint
-        self.num_joints = num_joints
         # set up filters for heatmap
         self.heatmap_conv_layers = nn.Sequential(
             ConvModule(
@@ -171,29 +163,22 @@ class DEKRHead(DeconvHead):
         groups = num_joints
         num_offset_filters = num_joints * num_offset_filters_per_joint
 
-        self.offset_conv_transition_layer = nn.Sequential(
+        self.offset_conv_layers = nn.Sequential(
             ConvModule(
                 in_channels=self.in_channels,
                 out_channels=num_offset_filters,
                 kernel_size=1,
-                norm_cfg=dict(type='BN'))
-        )
-        self.offset_conv_output_layers = nn.ModuleList(
-            [
-                nn.Sequential(
-                    *[offset_layer_clz(num_offset_filters_per_joint, num_offset_filters_per_joint) for _ in
-                      range(num_offset_filters_layers)],
-                    build_conv_layer(
-                        dict(type='Conv2d'),
-                        in_channels=num_offset_filters_per_joint,
-                        out_channels=2,
-                        kernel_size=1,
-                        groups=1
-                    )
-                )
-                for _ in range(num_joints)
-            ]
-        )
+                norm_cfg=dict(type='BN')),
+            AdaptiveActivationBlock(
+                num_offset_filters, num_offset_filters, groups=groups),
+            AdaptiveActivationBlock(
+                num_offset_filters, num_offset_filters, groups=groups),
+            build_conv_layer(
+                dict(type='Conv2d'),
+                in_channels=num_offset_filters,
+                out_channels=2 * num_joints,
+                kernel_size=1,
+                groups=groups))
 
         # set up offset losses
         self.offset_loss = build_loss(copy.deepcopy(offset_loss))
@@ -239,13 +224,7 @@ class DEKRHead(DeconvHead):
         x = self.deconv_layers(x)
         x = self.final_layer(x)
         heatmap = self.heatmap_conv_layers(x)
-        offset = self.offset_conv_transition_layer(x)
-        final_offset = []
-        offset_feature = torch.split(offset, self.num_offset_filters_per_joint, dim=1)
-        for j in range(self.num_joints):
-            o = self.offset_conv_output_layers[j](offset_feature[j])
-            final_offset.append(o)
-        offset = torch.cat(final_offset, dim=1)
+        offset = self.offset_conv_layers(x)
         return [[heatmap, offset]]
 
     def init_weights(self):
@@ -256,16 +235,11 @@ class DEKRHead(DeconvHead):
                 normal_init(m, std=0.001)
             elif isinstance(m, nn.BatchNorm2d):
                 constant_init(m, 1)
-        for name, m in self.offset_conv_transition_layer.named_modules():
+        for name, m in self.offset_conv_layers.named_modules():
             if isinstance(m, nn.Conv2d):
                 if 'transform_matrix_conv' in name:
                     normal_init(m, std=1e-8, bias=0)
                 else:
                     normal_init(m, std=0.001)
-            elif isinstance(m, nn.BatchNorm2d):
-                constant_init(m, 1)
-        for name, m in self.offset_conv_output_layers.named_modules():
-            if isinstance(m, nn.Conv2d):
-                normal_init(m, std=0.001)
             elif isinstance(m, nn.BatchNorm2d):
                 constant_init(m, 1)
