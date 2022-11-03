@@ -83,7 +83,7 @@ train_pipeline = [
         scale_type='long',
         trans_factor=10,
         clip=True),
-    dict(type='BottomUpRandomFlip', flip_prob=0.0),
+    dict(type='BottomUpRandomFlip', flip_prob=0.5),
     dict(
         type='PhotometricDistortion',
         brightness_delta=32,
