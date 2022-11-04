@@ -9,17 +9,21 @@ model = dict(
     # s: 64, 128, 256, 512
     # m: 96, 192, 384, 768
     # l: 128, 256, 512, 1024
-    backbone=dict(type='EfficientRep', arch='n', out_indices=[0, 1, 2, 3]),
+    backbone=dict(type='EfficientRep', arch='s', out_indices=[0, 1, 2, 3]),
     pretrained=None,
     keypoint_head=dict(
         type='DEKRHeadV2',
-        in_channels=[64, 128, 256],
+        in_channels=[128, 256, 512],
         in_index=[1, 2, 3],
         upsample_scales=[2, 4, 8],
         use_sigmoid=True,
         heatmap_loss=dict(
             _delete_=True,
-            type='FocalHeatmapLoss'
+            type='JointsMSELoss',
+            use_target_weight=True,
+            supervise_empty=False,
+            topk=7,
+            loss_weight=1.
         ),
     )
 )
@@ -47,11 +51,11 @@ train_pipeline = [
         type='BottomUpGenerateHeatmapTargetV2',
         sigma=(2, 2),
         gen_center_heatmap=True,
-        bg_weight=0.999,
+        bg_weight=0.1,
     ),
     dict(
         type='BottomUpGenerateOffsetTarget',
-        radius=4,
+        radius=2,
     ),
     dict(
         type='Collect',
