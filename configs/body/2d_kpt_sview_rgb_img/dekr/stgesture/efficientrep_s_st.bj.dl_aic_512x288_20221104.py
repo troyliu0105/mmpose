@@ -25,6 +25,9 @@ model = dict(
             topk=7,
             loss_weight=1.
         ),
+        offset_loss=dict(
+            loss_weight=0.05
+        )
     )
 )
 
@@ -49,13 +52,13 @@ train_pipeline = [
     dict(type='GetKeypointCenterArea'),
     dict(
         type='BottomUpGenerateHeatmapTargetV2',
-        sigma=(2, 2),
+        sigma=(2, 4),
         gen_center_heatmap=True,
         bg_weight=0.1,
     ),
     dict(
         type='BottomUpGenerateOffsetTarget',
-        radius=2,
+        radius=4,
     ),
     dict(
         type='Collect',
