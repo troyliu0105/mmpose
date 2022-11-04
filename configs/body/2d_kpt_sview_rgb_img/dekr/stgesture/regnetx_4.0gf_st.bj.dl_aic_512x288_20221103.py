@@ -78,7 +78,7 @@ train_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(
         type='BottomUpRandomAffine',
-        rot_factor=10,
+        rot_factor=30,
         scale_factor=[0.85, 1.15],
         scale_type='long',
         trans_factor=10,
