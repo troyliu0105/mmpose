@@ -90,7 +90,7 @@ class EfficientRep(BaseBackbone):
         't': {'depth_multiple': 0.33, 'width_multiple': 0.375},
         's': {'depth_multiple': 0.33, 'width_multiple': 0.50},
         'm': {'depth_multiple': 0.60, 'width_multiple': 0.75},
-        'l': {'depth_multiple': 1.9, 'width_multiple': 1.0},
+        'l': {'depth_multiple': 1.0, 'width_multiple': 1.0},
     }
     num_repeats = [1, 6, 12, 18, 6]
     out_channels = [64, 128, 256, 512, 1024]
