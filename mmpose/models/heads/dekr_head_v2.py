@@ -2,6 +2,7 @@
 import torch
 
 from torch import nn
+from torch.nn import functional as F
 from ..builder import HEADS
 from .dekr_head import DEKRHead, AdaptiveActivationBlock
 from ..backbones.resnet import BasicBlock, Bottleneck
@@ -15,6 +16,21 @@ try:
     has_mmcv_full = True
 except (ImportError, ModuleNotFoundError):
     has_mmcv_full = False
+
+
+class SPPBlock(nn.Module):
+    def __init__(self, branch=3):
+        super(SPPBlock, self).__init__()
+        self.branch = branch
+
+    def forward(self, x):
+        y = [x]
+        for i in range(self.branch - 1):
+            x = F.max_pool2d(x, 3, 1, 1)
+            x = F.max_pool2d(x, 3, 1, 1)
+            y.append(x)
+        y = torch.cat(y, dim=1)
+        return y
 
 
 @HEADS.register_module()
@@ -48,17 +64,44 @@ class DEKRHeadV2(DEKRHead):
                  upsample_scales=(2, 4),
                  num_offset_filters_layers=2,
                  offset_layer_type="AdaptiveBlock",
+                 spp_channels=128,
+                 spp_branch=0,
                  **kwargs):
         super().__init__(**kwargs)
+        self.offset_pre_spp_channels = spp_channels
+        self.offset_pre_spp = spp_branch
         self.upsample_scales = upsample_scales
         all_offset_layer_types = {"AdaptiveBlock": AdaptiveActivationBlock, "BasicBlock": BasicBlock,
                                   "Bottleneck": Bottleneck}
         offset_layer_clz = all_offset_layer_types[offset_layer_type]
         self.num_offset_filters_per_joint = kwargs.get('num_offset_filters_per_joint', 15)
         self.num_joints = kwargs.get('num_joints')
+        self.num_heatmap_filters = kwargs.get('num_heatmap_filters')
 
         num_offset_filters = self.num_joints * self.num_offset_filters_per_joint
 
+        if spp_branch > 0:
+            self.final_layer = nn.Sequential(
+                ConvModule(in_channels=self.in_channels,
+                           out_channels=spp_channels,
+                           kernel_size=1,
+                           norm_cfg=dict(type='BN')),
+                SPPBlock(branch=spp_branch)
+            )
+            self.in_channels = spp_channels * spp_branch
+
+        self.heatmap_conv_layers = nn.Sequential(
+            ConvModule(
+                in_channels=self.in_channels,
+                out_channels=self.num_heatmap_filters,
+                kernel_size=1,
+                norm_cfg=dict(type='BN')),
+            BasicBlock(self.num_heatmap_filters, self.num_heatmap_filters),
+            build_conv_layer(
+                dict(type='Conv2d'),
+                in_channels=self.num_heatmap_filters,
+                out_channels=1 + self.num_joints,
+                kernel_size=1))
         self.offset_conv_transition_layer = nn.Sequential(
             ConvModule(
                 in_channels=self.in_channels,
