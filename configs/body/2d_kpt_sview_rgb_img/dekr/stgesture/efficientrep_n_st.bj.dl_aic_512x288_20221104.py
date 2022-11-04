@@ -45,7 +45,7 @@ train_pipeline = [
     dict(type='GetKeypointCenterArea'),
     dict(
         type='BottomUpGenerateHeatmapTargetV2',
-        sigma=(2, 4),
+        sigma=(2, 2),
         gen_center_heatmap=True,
         bg_weight=0.999,
     ),
