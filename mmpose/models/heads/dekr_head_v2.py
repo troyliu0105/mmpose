@@ -66,11 +66,13 @@ class DEKRHeadV2(DEKRHead):
                  offset_layer_type="AdaptiveBlock",
                  spp_channels=128,
                  spp_branch=0,
+                 use_sigmoid=False,
                  **kwargs):
         super().__init__(**kwargs)
         self.offset_pre_spp_channels = spp_channels
         self.offset_pre_spp = spp_branch
         self.upsample_scales = upsample_scales
+        self.use_sigmoid = use_sigmoid
         all_offset_layer_types = {"AdaptiveBlock": AdaptiveActivationBlock, "BasicBlock": BasicBlock,
                                   "Bottleneck": Bottleneck}
         offset_layer_clz = all_offset_layer_types[offset_layer_type]
@@ -161,6 +163,8 @@ class DEKRHeadV2(DEKRHead):
         x = self.deconv_layers(x)
         x = self.final_layer(x)
         heatmap = self.heatmap_conv_layers(x)
+        if self.use_sigmoid:
+            heatmap = torch.sigmoid(heatmap)
         offset = self.offset_conv_transition_layer(x)
         final_offset = []
         offset_feature = torch.split(offset, self.num_offset_filters_per_joint, dim=1)

@@ -103,6 +103,8 @@ class FocalHeatmapLoss(nn.Module):
           pred (batch x c x h x w)
           gt_regr (batch x c x h x w)
         """
+        gt = torch.flatten(gt, start_dim=2)
+        pred = torch.flatten(pred, start_dim=2)
         pos_inds = gt.eq(1).float()
         neg_inds = gt.lt(1).float()
 
