@@ -30,6 +30,7 @@ from .vgg import VGG
 from .repvgg import RepVGG
 from .vipnas_mbv3 import ViPNAS_MobileNetV3
 from .vipnas_resnet import ViPNAS_ResNet
+from .efficientrep import EfficientRep
 
 __all__ = [
     'AlexNet', 'HourglassNet', 'HourglassAENet', 'HourglassNetLite', 'HRNet', 'MobileNetV2',
@@ -38,5 +39,5 @@ __all__ = [
     'RepVGG',
     'MSPN', 'ResNeSt', 'VGG', 'TCN', 'ViPNAS_ResNet', 'ViPNAS_MobileNetV3',
     'LiteHRNet', 'V2VNet', 'HRFormer', 'PyramidVisionTransformer',
-    'PyramidVisionTransformerV2', 'SwinTransformer', 'I3D', 'TCFormer'
+    'PyramidVisionTransformerV2', 'SwinTransformer', 'I3D', 'TCFormer', 'EfficientRep'
 ]
