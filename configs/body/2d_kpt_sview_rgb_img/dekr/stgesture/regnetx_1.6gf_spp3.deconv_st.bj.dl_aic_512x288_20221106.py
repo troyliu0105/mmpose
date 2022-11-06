@@ -15,6 +15,14 @@ model = dict(
         upsample_scales=[1, 2, 4],
         upsample_use_deconv=True,
         spp_branch=3,
-        spp_channels=128
+        spp_channels=128,
+        heatmap_loss=dict(
+            _delete_=True,
+            type='JointsMSELoss',
+            use_target_weight=True,
+            supervise_empty=False,
+            topk=7,
+            loss_weight=0.5,
+        )
     )
 )
