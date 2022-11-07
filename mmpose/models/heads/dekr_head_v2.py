@@ -1,7 +1,9 @@
 # Copyright (c) OpenMMLab. All rights reserved.
+from typing import Optional, List
+
 import torch
 
-from torch import nn
+from torch import nn, Tensor
 from torch.nn import functional as F
 from ..builder import HEADS
 from .dekr_head import DEKRHead, AdaptiveActivationBlock
@@ -36,7 +38,7 @@ class SPPBlock(nn.Module):
 class BilinearConvTranspose2d(nn.ConvTranspose2d):
     """A conv transpose initialized to bilinear interpolation."""
 
-    def __init__(self, channels, stride, groups=1):
+    def __init__(self, channels, stride):
         """Set up the layer.
         Parameters
         ----------
@@ -44,25 +46,23 @@ class BilinearConvTranspose2d(nn.ConvTranspose2d):
             The number of input and output channels
         stride: int or tuple
             The amount of upsampling to do
-        groups: int
-            Set to 1 for a standard convolution. Set equal to channels to
-            make sure there is no cross-talk between channels.
         """
         if isinstance(stride, int):
             stride = (stride, stride)
 
-        assert groups in (1, channels), "Must use no grouping, " + \
-                                        "or one group per channel"
-
-        kernel_size = (2 * stride[0] - 1, 2 * stride[1] - 1)
-        padding = (stride[0] - 1, stride[1] - 1)
+        kernel_size = (2 * stride[0] - stride[0] % 2, 2 * stride[1] - stride[1] % 2)
+        self.center_loc = (stride[0] - 1 if kernel_size[0] % 2 == 1 else stride[0] - 0.5,
+                           stride[1] - 1 if kernel_size[1] % 2 == 1 else stride[1] - 0.5)
+        padding = (
+            int((kernel_size[0] - stride[0]) / 2),
+            int((kernel_size[1] - stride[1]) / 2)
+        )
         super().__init__(
             channels, channels,
             kernel_size=kernel_size,
             stride=stride,
             padding=padding,
-            output_padding=padding,
-            groups=groups)
+            groups=channels)
 
     def reset_parameters(self):
         """Reset the weight and bias."""
@@ -76,29 +76,16 @@ class BilinearConvTranspose2d(nn.ConvTranspose2d):
                 j = 0
             self.weight.data[i, j] = bilinear_kernel
 
-    @staticmethod
-    def bilinear_kernel(stride):
+    def bilinear_kernel(self, stride):
         """Generate a bilinear upsampling kernel."""
-        num_dims = len(stride)
-
-        shape = (1,) * num_dims
-        bilinear_kernel = torch.ones(*shape)
-
-        # The bilinear kernel is separable in its spatial dimensions
-        # Build up the kernel channel by channel
-        for channel in range(num_dims):
-            channel_stride = stride[channel]
-            kernel_size = 2 * channel_stride - 1
-            # e.g. with stride = 4
-            # delta = [-3, -2, -1, 0, 1, 2, 3]
-            # channel_filter = [0.25, 0.5, 0.75, 1.0, 0.75, 0.5, 0.25]
-            delta = torch.arange(1 - channel_stride, channel_stride)
-            channel_filter = (1 - torch.abs(delta / channel_stride))
-            # Apply the channel filter to the current channel
-            shape = [1] * num_dims
-            shape[channel] = kernel_size
-            bilinear_kernel = bilinear_kernel * channel_filter.view(shape)
-        return bilinear_kernel
+        ksize = self.kernel_size
+        kernel = torch.zeros(ksize)
+        for y in range(ksize[0]):
+            for x in range(ksize[1]):
+                value = (1 - abs((y - self.center_loc[0]) / stride[0])) * \
+                        (1 - abs((x - self.center_loc[1]) / stride[1]))
+                kernel[y, x] = value
+        return kernel
 
 
 @HEADS.register_module()
@@ -168,7 +155,7 @@ class DEKRHeadV2(DEKRHead):
                 if s == 1:
                     upsamples.append(nn.Identity())
                 else:
-                    upsamples.append(BilinearConvTranspose2d(c, s, groups=c))
+                    upsamples.append(BilinearConvTranspose2d(c, s))
             self.upsample_deconvs = nn.ModuleList(upsamples)
 
         self.heatmap_conv_layers = nn.Sequential(
