@@ -155,7 +155,11 @@ class DEKRHeadV2(DEKRHead):
                 if s == 1:
                     upsamples.append(nn.Identity())
                 else:
-                    upsamples.append(BilinearConvTranspose2d(c, s))
+                    up = []
+                    while s != 1:
+                        up.append(BilinearConvTranspose2d(c, 2))
+                        s //= 2
+                    upsamples.append(nn.Sequential(*up))
             self.upsample_deconvs = nn.ModuleList(upsamples)
 
         self.heatmap_conv_layers = nn.Sequential(
