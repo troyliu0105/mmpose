@@ -62,11 +62,12 @@ class BilinearConvTranspose2d(nn.ConvTranspose2d):
             kernel_size=kernel_size,
             stride=stride,
             padding=padding,
-            groups=channels)
+            groups=channels,
+            bias=False)
 
     def reset_parameters(self):
         """Reset the weight and bias."""
-        nn.init.constant_(self.bias, 0)
+        # nn.init.constant_(self.bias, 0)
         nn.init.constant_(self.weight, 0)
         bilinear_kernel = self.bilinear_kernel(self.stride)
         for i in range(self.in_channels):
@@ -118,6 +119,7 @@ class DEKRHeadV2(DEKRHead):
     def __init__(self,
                  upsample_scales=(2, 4),
                  upsample_use_deconv=False,
+                 upsample_freeze_deconv=False,
                  num_offset_filters_layers=2,
                  offset_layer_type="AdaptiveBlock",
                  last_spp_channels=128,
@@ -126,10 +128,11 @@ class DEKRHeadV2(DEKRHead):
                  **kwargs):
         self.in_channel_list = kwargs.get('in_channels')
         super().__init__(**kwargs)
+        self.upsample_scales = upsample_scales
         self.upsample_use_deconv = upsample_use_deconv
+        self.upsample_freeze_deconv = upsample_freeze_deconv
         self.offset_pre_spp_channels = last_spp_channels
         self.offset_pre_spp = last_spp_branch
-        self.upsample_scales = upsample_scales
         self.use_sigmoid = use_sigmoid
         all_offset_layer_types = {"AdaptiveBlock": AdaptiveActivationBlock, "BasicBlock": BasicBlock,
                                   "Bottleneck": Bottleneck}
@@ -165,6 +168,8 @@ class DEKRHeadV2(DEKRHead):
                         s //= 2
                     upsamples.append(nn.Sequential(*up))
             self.upsample_deconvs = nn.ModuleList(upsamples)
+        if upsample_use_deconv and upsample_freeze_deconv:
+            self._freeze_upsample_deconv()
 
         self.heatmap_conv_layers = nn.Sequential(
             ConvModule(
@@ -202,6 +207,10 @@ class DEKRHeadV2(DEKRHead):
             ]
         )
         self.offset_conv_layers = nn.Sequential()
+
+    def _freeze_upsample_deconv(self):
+        for p in self.upsample_deconvs.parameters():
+            p.requires_grad = False
 
     def _transform_inputs(self, inputs):
         """Transform inputs for decoder.

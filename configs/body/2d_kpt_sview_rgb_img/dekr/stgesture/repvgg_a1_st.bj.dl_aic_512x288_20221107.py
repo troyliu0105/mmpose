@@ -51,30 +51,16 @@ model = dict(
             supervise_empty=False,
             loss_weight=0.05,
             beta=1 / 9.0,
-        )),
-    train_cfg=dict(),
-    test_cfg=dict(
-        num_joints=len(channel_cfg['inference_channel']),
-        max_num_people=30,
-        scale_factor=[1],
-        project2image=False,
-        align_corners=False,
-        max_pool_kernel=3,
-        use_nms=True,
-        nms_dist_thr=0.05,
-        nms_joints_thr=5,
-        keypoint_threshold=0.01,
-        flip_test=False
-    ))
+        )))
 
 train_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(
         type='BottomUpRandomAffine',
-        rot_factor=30,
-        scale_factor=[0.8, 1.2],
+        rot_factor=10,
+        scale_factor=[0.85, 1.15],
         scale_type='long',
-        trans_factor=40,
+        trans_factor=10,
         clip=True),
     dict(type='BottomUpRandomFlip', flip_prob=0.5),
     dict(
