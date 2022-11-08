@@ -15,7 +15,7 @@ model = dict(
         in_channels=[168, 408],
         in_index=[0, 1],
         upsample_scales=[2, 4],
-        spp_branch=4,
+        last_spp_branch=4,
     )
 )
 

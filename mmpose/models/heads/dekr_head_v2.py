@@ -120,14 +120,15 @@ class DEKRHeadV2(DEKRHead):
                  upsample_use_deconv=False,
                  num_offset_filters_layers=2,
                  offset_layer_type="AdaptiveBlock",
-                 spp_channels=128,
-                 spp_branch=0,
+                 last_spp_channels=128,
+                 last_spp_branch=0,
                  use_sigmoid=False,
                  **kwargs):
+        self.in_channel_list = kwargs.get('in_channels')
         super().__init__(**kwargs)
         self.upsample_use_deconv = upsample_use_deconv
-        self.offset_pre_spp_channels = spp_channels
-        self.offset_pre_spp = spp_branch
+        self.offset_pre_spp_channels = last_spp_channels
+        self.offset_pre_spp = last_spp_branch
         self.upsample_scales = upsample_scales
         self.use_sigmoid = use_sigmoid
         all_offset_layer_types = {"AdaptiveBlock": AdaptiveActivationBlock, "BasicBlock": BasicBlock,
@@ -139,19 +140,22 @@ class DEKRHeadV2(DEKRHead):
 
         num_offset_filters = self.num_joints * self.num_offset_filters_per_joint
 
-        if spp_branch > 0:
-            self.final_layer = nn.Sequential(
-                ConvModule(in_channels=self.in_channels,
-                           out_channels=spp_channels,
+        if last_spp_branch > 0:
+            self.last_spp = nn.Sequential(
+                ConvModule(in_channels=self.in_channel_list[-1],
+                           out_channels=last_spp_channels,
                            kernel_size=1,
                            norm_cfg=dict(type='BN')),
-                SPPBlock(branch=spp_branch)
+                SPPBlock(branch=last_spp_branch)
             )
-            self.in_channels = spp_channels * spp_branch
+            self.in_channel_list[-1] = last_spp_channels * last_spp_branch
+            self.in_channels = sum(self.in_channel_list)
+        else:
+            self.last_spp = nn.Identity()
 
         if upsample_use_deconv:
             upsamples = []
-            for s, c in zip(upsample_scales, kwargs.get('in_channels')):
+            for s, c in zip(upsample_scales, self.in_channel_list):
                 if s == 1:
                     upsamples.append(nn.Identity())
                 else:
@@ -232,6 +236,8 @@ class DEKRHeadV2(DEKRHead):
 
     def forward(self, x):
         """Forward function."""
+        x = list(x)
+        x[-1] = self.last_spp(x[-1])
         x = self._transform_inputs(x)
         x = self.deconv_layers(x)
         x = self.final_layer(x)
