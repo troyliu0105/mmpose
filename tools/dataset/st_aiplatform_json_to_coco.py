@@ -55,6 +55,8 @@ def extract_pose(json_data, current_image_idx, current_anno_idx):
     annos = []
     shapes = json_data['shapes']
     polylines = [ann for ann in shapes if ann['type'] == 'polyline']
+    if len(shapes) == 0:
+        raise ValueError('没有任何标注')
     for poly in polylines:
         if poly['label'] != '司机关键点':
             continue

@@ -23,6 +23,9 @@ def convert_to_voc(img_path, json_data):
     assert clip_name is not None, f'img_path: {img_path}'
     dst_name = f'{clip_name}_{fname}'
     shapes = json_data['shapes']
+    if shapes == 0:
+        print("Detect empty labels")
+        raise ValueError("Detect empty labels")
     accepted_labels = ['司机头部', '玩手机']
     heads_map = {'左扭头': 'left', '直视': 'straight', '右扭头': 'right'}
     objs = []
@@ -105,13 +108,16 @@ def main(args):
     for img_file, json_file in tqdm.tqdm(pairs):
         with open(json_file) as fp:
             json_data = json.load(fp)
-        dst_image_path, voc_anno_dict, = convert_to_voc(img_file, json_data)
-        dst_anno_path = os.path.join(output_anno_dir, dst_image_path.replace('.jpg', '.xml'))
-        dst_image_path = os.path.join(output_image_dir, dst_image_path)
-        shutil.copy(img_file, dst_image_path)
-        with open(dst_anno_path, 'w', encoding='utf-8') as fp:
-            xml_str = xmltodict.unparse(voc_anno_dict, pretty=True, encoding='utf-8')
-            fp.write(xml_str)
+        try:
+            dst_image_path, voc_anno_dict, = convert_to_voc(img_file, json_data)
+            dst_anno_path = os.path.join(output_anno_dir, dst_image_path.replace('.jpg', '.xml'))
+            dst_image_path = os.path.join(output_image_dir, dst_image_path)
+            shutil.copy(img_file, dst_image_path)
+            with open(dst_anno_path, 'w', encoding='utf-8') as fp:
+                xml_str = xmltodict.unparse(voc_anno_dict, pretty=True, encoding='utf-8')
+                fp.write(xml_str)
+        except:
+            pass
 
 
 if __name__ == '__main__':
