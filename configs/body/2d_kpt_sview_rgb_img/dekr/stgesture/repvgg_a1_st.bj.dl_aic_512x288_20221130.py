@@ -1,5 +1,5 @@
 _base_ = [
-    './repvgg_a1_st.bj.dl_aic_512x512_20221026.py',
+    './repvgg_a1_st.bj.dl_aic_512x288_20221026.py',
 ]
 
 channel_cfg = dict(
@@ -84,38 +84,14 @@ test_pipeline = val_pipeline
 data_root = 'data'
 data = dict(
     train=[
-        dict(
-            type='BottomUpSTGestureDataset',
-            ann_file=
-            f'{data_root}/rails/rm_beijing/rm_beijing.20221021.train.json',
-            img_prefix=f'{data_root}/rails/rm_beijing/images/',
-            data_cfg=data_cfg,
-            pipeline=train_pipeline,
-            dataset_info={{_base_.dataset_info}}),
         # dict(
         #     type='BottomUpSTGestureDataset',
         #     ann_file=
-        #     f'{data_root}/rails/rm_dalian/rm_dalian.20221021.train.json',
-        #     img_prefix=f'{data_root}/rails/rm_dalian/images/',
+        #     f'{data_root}/rails/rm_shuohuang/rm_shuohuang.11pts.20221021.train.json',
+        #     img_prefix=f'{data_root}/rails/rm_shuohuang/images/',
         #     data_cfg=data_cfg,
         #     pipeline=train_pipeline,
         #     dataset_info={{_base_.dataset_info}}),
-        dict(
-            type='BottomUpSTGestureDataset',
-            ann_file=
-            f'{data_root}/rails/rm_shuohuang/rm_shuohuang.11pts.20221021.train.json',
-            img_prefix=f'{data_root}/rails/rm_shuohuang/images/',
-            data_cfg=data_cfg,
-            pipeline=train_pipeline,
-            dataset_info={{_base_.dataset_info}}),
-        dict(
-            type='BottomUpSTGestureDataset',
-            ann_file=
-            f'{data_root}/rails/rm_shuohuang/rm_shuohuang.9pts.20221021.train.json',
-            img_prefix=f'{data_root}/rails/rm_shuohuang/images/',
-            data_cfg=data_cfg,
-            pipeline=train_pipeline,
-            dataset_info={{_base_.dataset_info}}),
         dict(
             type='BottomUpSTGestureDataset',
             ann_file=
@@ -124,13 +100,6 @@ data = dict(
             data_cfg=data_cfg,
             pipeline=train_pipeline,
             dataset_info={{_base_.dataset_info}}),
-        dict(
-            type='BottomUpSTGestureDataset',
-            ann_file=f'{data_root}/aic/annotations/st_gesture_aic_train.json',
-            img_prefix=f'{data_root}/aic/ai_challenger_keypoint_train_20170909/keypoint_train_images_20170902',
-            data_cfg=data_cfg,
-            pipeline=train_pipeline,
-            dataset_info={{_base_.dataset_info}})
     ],
     val=dict(
         _delete_=True,
@@ -183,3 +152,15 @@ data = dict(
         ]
     )
 )
+
+optimizer = dict(
+    type='Adam',
+    lr=0.0001,
+)
+optimizer_config = dict(grad_clip=None)
+# learning policy
+lr_config = dict(
+    policy='step',
+    warmup=None,
+    step=[25, 40])
+total_epochs = 50
