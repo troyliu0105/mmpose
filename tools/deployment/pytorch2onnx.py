@@ -2,6 +2,7 @@
 import argparse
 import warnings
 
+import mmcv
 import numpy as np
 import torch
 
@@ -87,6 +88,8 @@ def pytorch2onnx(model,
         if not isinstance(pytorch_results, (list, tuple)):
             assert isinstance(pytorch_results, torch.Tensor)
             pytorch_results = [pytorch_results]
+        if mmcv.is_list_of(pytorch_results, list):
+            pytorch_results = pytorch_results[0]
 
         # get onnx output
         input_all = [node.name for node in onnx_model.graph.input]
