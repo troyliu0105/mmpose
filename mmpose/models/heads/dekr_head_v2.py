@@ -125,6 +125,7 @@ class DEKRHeadV2(DEKRHead):
                  last_spp_channels=128,
                  last_spp_branch=0,
                  use_sigmoid=False,
+                 use_neg=False,
                  **kwargs):
         self.in_channel_list = kwargs.get('in_channels')
         super().__init__(**kwargs)
@@ -207,6 +208,8 @@ class DEKRHeadV2(DEKRHead):
             ]
         )
         self.offset_conv_layers = nn.Sequential()
+        self.use_neg = use_neg
+        self.neg_loss = HeatmapLoss_Neg(supervise_empty=False)
 
     def _freeze_upsample_deconv(self):
         for p in self.upsample_deconvs.parameters():
@@ -262,6 +265,17 @@ class DEKRHeadV2(DEKRHead):
         offset = torch.cat(final_offset, dim=1)
         return [[heatmap, offset]]
 
+    def get_loss(self, outputs, heatmaps, masks, offsets, offset_weights):
+        losses = super().get_loss(outputs, heatmaps, masks, offsets, offset_weights)
+        if self.use_neg:
+            neg_hm_loss = 0
+            for idx in range(len(outputs)):
+                pred_heatmap, pred_offset = outputs[idx]
+                neg_hm_loss += self.neg_loss(pred_heatmap, heatmaps[idx], masks[idx])
+            losses['loss_hms'] += 0.2 * neg_hm_loss
+        else:
+            return losses
+
     def init_weights(self):
         super().init_weights()
         for name, m in self.offset_conv_transition_layer.named_modules():
@@ -277,3 +291,38 @@ class DEKRHeadV2(DEKRHead):
                 normal_init(m, std=0.001)
             elif isinstance(m, nn.BatchNorm2d):
                 constant_init(m, 1)
+
+
+class HeatmapLoss_Neg(nn.Module):
+    """Accumulate the heatmap loss for each image in the batch.
+
+    Args:
+        supervise_empty (bool): Whether to supervise empty channels.
+    """
+
+    def __init__(self, supervise_empty=True):
+        super(HeatmapLoss_Neg, self).__init__()
+        self.supervise_empty = supervise_empty
+
+    def forward(self, pred, gt, mask):
+        """
+        Note:
+            batch_size: N
+            heatmaps weight: W
+            heatmaps height: H
+            max_num_people: M
+            num_keypoints: K
+        Args:
+            pred (torch.Tensor[NxKxHxW]):heatmap of output.
+            gt (torch.Tensor[NxKxHxW]): target heatmap.
+            mask (torch.Tensor[NxHxW]): mask of target.
+        """
+        assert pred.size() == gt.size(), f'pred.size() is {pred.size()}, gt.size() is {gt.size()}'
+
+        if not self.supervise_empty:
+            empty_mask = (gt.sum(dim=[2, 3], keepdim=True) > 0).float()
+            loss = ((pred - gt) ** 2) * empty_mask.expand_as(pred) * mask * abs(pred - gt) / (gt + 0.1)
+        else:
+            loss = ((pred - gt) ** 2) * mask * abs(pred - gt) / (gt + 0.1)
+        loss = loss.mean(dim=3).mean(dim=2).mean(dim=1)
+        return loss
