@@ -269,7 +269,7 @@ class DEKRHeadV2(DEKRHead):
         for idx in range(len(outputs)):
             pred_heatmap, pred_offset = outputs[idx]
             neg_hm_loss += self.neg_loss(pred_heatmap, heatmaps[idx], masks[idx])
-        losses['loss_hms'] += 0.2 * neg_hm_loss
+        losses['loss_hms'] += 0.25 * (neg_hm_loss.mean() / 13)
         return losses
 
     def init_weights(self):
