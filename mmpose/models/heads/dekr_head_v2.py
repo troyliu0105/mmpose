@@ -125,7 +125,6 @@ class DEKRHeadV2(DEKRHead):
                  last_spp_channels=128,
                  last_spp_branch=0,
                  use_sigmoid=False,
-                 use_neg=False,
                  **kwargs):
         self.in_channel_list = kwargs.get('in_channels')
         super().__init__(**kwargs)
@@ -208,7 +207,6 @@ class DEKRHeadV2(DEKRHead):
             ]
         )
         self.offset_conv_layers = nn.Sequential()
-        self.use_neg = use_neg
         self.neg_loss = HeatmapLoss_Neg(supervise_empty=False)
 
     def _freeze_upsample_deconv(self):
@@ -267,14 +265,12 @@ class DEKRHeadV2(DEKRHead):
 
     def get_loss(self, outputs, heatmaps, masks, offsets, offset_weights):
         losses = super().get_loss(outputs, heatmaps, masks, offsets, offset_weights)
-        if self.use_neg:
-            neg_hm_loss = 0
-            for idx in range(len(outputs)):
-                pred_heatmap, pred_offset = outputs[idx]
-                neg_hm_loss += self.neg_loss(pred_heatmap, heatmaps[idx], masks[idx])
-            losses['loss_hms'] += 0.2 * neg_hm_loss
-        else:
-            return losses
+        neg_hm_loss = 0
+        for idx in range(len(outputs)):
+            pred_heatmap, pred_offset = outputs[idx]
+            neg_hm_loss += self.neg_loss(pred_heatmap, heatmaps[idx], masks[idx])
+        losses['loss_hms'] += 0.2 * neg_hm_loss
+        return losses
 
     def init_weights(self):
         super().init_weights()

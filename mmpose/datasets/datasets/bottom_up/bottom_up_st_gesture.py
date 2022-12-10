@@ -162,5 +162,5 @@ class BottomUpSTGestureDataset(BottomUpCocoDataset):
 
     def _get_joints(self, anno):
         results = super(BottomUpSTGestureDataset, self)._get_joints(anno)
-        # results[:, [0, 7], 2] = (results[:, [0, 7], 2] == 2) * 2
+        results[:, [0, 7], 2] = (results[:, [0, 7], 2] == 2) * 2
         return results
